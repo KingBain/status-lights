@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#111820">
+    <meta
+      name="description"
+      content="Status Lights turns GitHub Actions workflow results into compact, customizable SVG indicators for Markdown dashboards."
+    >
+    <meta property="og:title" content="Status Lights">
+    <meta
+      property="og:description"
+      content="Small, customizable workflow indicators for dashboards that need signal instead of noise."
+    >
+    <meta property="og:type" content="website">
+    <title>Status Lights — GitHub workflow status at a glance</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+    <script src="script.js" defer></script>
+  </head>
+  <body id="top">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="#top" aria-label="Status Lights home">
+          <span class="brand-mark" aria-hidden="true">
+            <span class="light success"></span>
+            <span class="light failure"></span>
+            <span class="light running"></span>
+            <span class="light unknown"></span>
+          </span>
+          <span>Status Lights</span>
+        </a>
+        <nav aria-label="Primary navigation">
+          <a href="#how-it-works">How it works</a>
+          <a href="#customize">Customize</a>
+          <a href="#roadmap">Roadmap</a>
+          <a
+            class="nav-github"
+            href="https://github.com/KingBain/status-lights"
+            rel="noreferrer"
+          >GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero">
+        <div class="shell hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="pulse-dot"></span> Open source · Under construction</p>
+            <h1>Workflow status.<br><span>Nothing else.</span></h1>
+            <p class="hero-lede">
+              Status Lights turns GitHub Actions results into compact, customizable SVG
+              indicators—built for Markdown dashboards that need signal instead of noise.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="#customize">Design a light</a>
+              <a
+                class="button button-secondary"
+                href="https://github.com/KingBain/status-lights"
+                rel="noreferrer"
+              >Follow the build on GitHub</a>
+            </div>
+            <p class="launch-note">Planned as a free public service. No account required.</p>
+          </div>
+
+          <div class="status-board" aria-label="Example service status dashboard">
+            <div class="board-topline">
+              <span>platform-overview.md</span>
+              <span class="board-live"><span></span> live view</span>
+            </div>
+            <div class="board-heading">
+              <div>
+                <p class="board-kicker">SYSTEM HEALTH</p>
+                <h2>At a glance</h2>
+              </div>
+              <span class="board-time">14:32 UTC</span>
+            </div>
+            <div class="board-table" role="table" aria-label="Workflow examples">
+              <div class="board-row board-labels" role="row">
+                <span role="columnheader">SERVICE</span>
+                <span role="columnheader">BUILD</span>
+                <span role="columnheader">TEST</span>
+                <span role="columnheader">DEPLOY</span>
+              </div>
+              <div class="board-row" role="row">
+                <strong role="cell">portal</strong>
+                <span class="demo-light success" role="cell" aria-label="Build successful"></span>
+                <span class="demo-light success" role="cell" aria-label="Tests successful"></span>
+                <span class="demo-light running is-pulsing" role="cell" aria-label="Deployment running"></span>
+              </div>
+              <div class="board-row" role="row">
+                <strong role="cell">data-api</strong>
+                <span class="demo-light success" role="cell" aria-label="Build successful"></span>
+                <span class="demo-light failure" role="cell" aria-label="Tests failed"></span>
+                <span class="demo-light unknown" role="cell" aria-label="Deployment unknown"></span>
+              </div>
+              <div class="board-row" role="row">
+                <strong role="cell">documentation</strong>
+                <span class="demo-light success" role="cell" aria-label="Build successful"></span>
+                <span class="demo-light success" role="cell" aria-label="Tests successful"></span>
+                <span class="demo-light success" role="cell" aria-label="Deployment successful"></span>
+              </div>
+            </div>
+            <div class="board-legend" aria-hidden="true">
+              <span><i class="success"></i> success</span>
+              <span><i class="failure"></i> failure</span>
+              <span><i class="running"></i> running</span>
+              <span><i class="unknown"></i> unknown</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="signal-section">
+        <div class="shell comparison-grid">
+          <div>
+            <p class="section-number">01 / WHY</p>
+            <h2>Badges explain.<br>Status lights scan.</h2>
+          </div>
+          <div class="comparison-copy">
+            <p>
+              A badge is useful when you need a label. A status light is better when the
+              surrounding table already supplies the context. It is smaller, quieter, and much
+              easier to scan across a large service matrix.
+            </p>
+            <div class="compare-strip" aria-label="Visual comparison">
+              <div>
+                <span class="compare-label">TRADITIONAL BADGE</span>
+                <span class="old-badge"><b>build</b><i>passing</i></span>
+              </div>
+              <span class="compare-arrow" aria-hidden="true">→</span>
+              <div>
+                <span class="compare-label">STATUS LIGHT</span>
+                <span class="large-demo-light success" aria-label="Successful"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="how-section" id="how-it-works">
+        <div class="shell">
+          <div class="section-heading">
+            <div>
+              <p class="section-number">02 / HOW IT WORKS</p>
+              <h2>One URL. One answer.</h2>
+            </div>
+            <p>
+              Point the service at a public GitHub Actions workflow. It resolves the latest run,
+              maps the result to a stable state, and returns a cache-friendly SVG.
+            </p>
+          </div>
+          <ol class="process-grid">
+            <li>
+              <span>01</span>
+              <h3>Name the workflow</h3>
+              <p>Owner, repository, and workflow filename live directly in the URL path.</p>
+              <code>/github/acme/api/ci.yml</code>
+            </li>
+            <li>
+              <span>02</span>
+              <h3>Choose the appearance</h3>
+              <p>Add named path segments for size, label, font, shape, palette, or colours.</p>
+              <code>/size/40/text/Build</code>
+            </li>
+            <li>
+              <span>03</span>
+              <h3>Embed the SVG</h3>
+              <p>Use the URL anywhere an SVG image works, including linked Markdown tables.</p>
+              <code>![Build](.../Build.svg)</code>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="customizer-section" id="customize">
+        <div class="shell">
+          <div class="section-heading customizer-heading">
+            <div>
+              <p class="section-number">03 / CUSTOMIZE</p>
+              <h2>Make the signal yours.</h2>
+            </div>
+            <p>
+              Explore the planned URL format. Everything is encoded in readable path segments;
+              the preview below runs entirely in your browser.
+            </p>
+          </div>
+
+          <div class="builder">
+            <form class="builder-controls" id="light-builder">
+              <fieldset>
+                <legend>Workflow source</legend>
+                <div class="field-row three-fields">
+                  <label>
+                    <span>Owner</span>
+                    <input id="owner" name="owner" value="KingBain" maxlength="39" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>Repository</span>
+                    <input id="repository" name="repository" value="status-lights" maxlength="100" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>Workflow</span>
+                    <input id="workflow" name="workflow" value="pages.yml" maxlength="100" autocomplete="off">
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend>Appearance</legend>
+                <div class="field-row appearance-fields">
+                  <label class="text-field">
+                    <span>Text <small>Use {status} dynamically</small></span>
+                    <input id="label-text" name="text" value="Build: {status}" maxlength="80" autocomplete="off">
+                  </label>
+                  <label>
+                    <span>Font</span>
+                    <select id="font" name="font">
+                      <option value="sans">Sans</option>
+                      <option value="mono">Mono</option>
+                      <option value="serif">Serif</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="slider-grid">
+                  <label>
+                    <span>Height <output id="size-output" for="size">40px</output></span>
+                    <input id="size" name="size" type="range" min="16" max="100" value="40">
+                  </label>
+                  <label>
+                    <span>Font size <output id="font-size-output" for="font-size">16px</output></span>
+                    <input id="font-size" name="font-size" type="range" min="8" max="36" value="16">
+                  </label>
+                  <label>
+                    <span>Corner radius <output id="radius-output" for="radius">6px</output></span>
+                    <input id="radius" name="radius" type="range" min="0" max="20" value="6">
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend>State colours</legend>
+                <div class="color-grid">
+                  <label><span>Success</span><input id="success-color" type="color" value="#1a7f37"></label>
+                  <label><span>Failure</span><input id="failure-color" type="color" value="#cf222e"></label>
+                  <label><span>Running</span><input id="running-color" type="color" value="#bf8700"></label>
+                  <label><span>Unknown</span><input id="unknown-color" type="color" value="#6e7781"></label>
+                </div>
+              </fieldset>
+            </form>
+
+            <div class="builder-preview">
+              <div class="preview-topline">
+                <span>LIVE PREVIEW</span>
+                <div class="state-switcher" aria-label="Preview state">
+                  <button class="state-button active" type="button" data-state="success">Success</button>
+                  <button class="state-button" type="button" data-state="failure">Failure</button>
+                  <button class="state-button" type="button" data-state="running">Running</button>
+                  <button class="state-button" type="button" data-state="unknown">Unknown</button>
+                </div>
+              </div>
+              <div class="preview-canvas">
+                <svg id="light-preview" role="img" aria-labelledby="preview-title">
+                  <title id="preview-title">Status light preview</title>
+                  <rect id="preview-background"></rect>
+                  <text id="preview-text" text-anchor="middle" dominant-baseline="central"></text>
+                </svg>
+              </div>
+              <div class="url-panel">
+                <div class="url-heading">
+                  <span>PLANNED URL PATH</span>
+                  <button id="copy-url" type="button">Copy</button>
+                </div>
+                <code id="generated-url" aria-live="polite"></code>
+              </div>
+              <p class="preview-disclaimer">
+                Preview only—the public rendering endpoint will be connected in a later release.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="capabilities-section">
+        <div class="shell">
+          <p class="section-number">04 / CAPABILITIES</p>
+          <div class="capabilities-grid">
+            <article>
+              <span class="capability-icon">Aa</span>
+              <h3>Dynamic text</h3>
+              <p>Add a fixed label or place <code>{status}</code> inside it to display the current result.</p>
+            </article>
+            <article>
+              <span class="capability-icon size-icon">↔</span>
+              <h3>Flexible dimensions</h3>
+              <p>Control height, optional width, font size, and corner radius from the URL.</p>
+            </article>
+            <article>
+              <span class="capability-icon palette-icon"><i></i><i></i><i></i></span>
+              <h3>Complete colour control</h3>
+              <p>Choose a palette or override each workflow state with your own hexadecimal colour.</p>
+            </article>
+            <article>
+              <span class="capability-icon font-icon">M</span>
+              <h3>Portable fonts</h3>
+              <p>Select a dependable sans, serif, or monospace stack that survives image proxies.</p>
+            </article>
+            <article>
+              <span class="capability-icon cache-icon">↻</span>
+              <h3>Cache-friendly</h3>
+              <p>Server and HTTP caching keep dashboards quick without hammering the GitHub API.</p>
+            </article>
+            <article>
+              <span class="capability-icon safe-icon">◇</span>
+              <h3>Safe by design</h3>
+              <p>A fixed GitHub source, strict path validation, and escaped SVG output limit abuse.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="principles-section" id="principles">
+        <div class="shell principles-grid">
+          <div>
+            <p class="section-number light-number">05 / PUBLIC SERVICE</p>
+            <h2>Useful should be easy to use.</h2>
+          </div>
+          <div class="principle-list">
+            <article>
+              <span>01</span>
+              <div><h3>Free to use</h3><p>No paid tier, account, or client-side token for public workflows.</p></div>
+            </article>
+            <article>
+              <span>02</span>
+              <div><h3>Open source</h3><p>The implementation, decisions, and deployment configuration stay public.</p></div>
+            </article>
+            <article>
+              <span>03</span>
+              <div><h3>URL first</h3><p>A status light should be portable enough to work wherever an image URL works.</p></div>
+            </article>
+            <article>
+              <span>04</span>
+              <div><h3>Quietly dependable</h3><p>Stale data or gray is better than a broken dashboard when an upstream API fails.</p></div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="roadmap-section" id="roadmap">
+        <div class="shell">
+          <div class="section-heading">
+            <div>
+              <p class="section-number">06 / ROADMAP</p>
+              <h2>Built in public.</h2>
+            </div>
+            <p>
+              The website is the first pull request. Each following stage will land as a reviewable,
+              tested change in the public repository.
+            </p>
+          </div>
+          <ol class="roadmap-list">
+            <li class="current">
+              <span class="roadmap-marker"></span>
+              <p>NOW</p>
+              <h3>Explain the service</h3>
+              <span>Public website, design language, and URL configurator</span>
+            </li>
+            <li>
+              <span class="roadmap-marker"></span>
+              <p>NEXT</p>
+              <h3>Build the renderer</h3>
+              <span>Validated options, palettes, text, sizing, and SVG output</span>
+            </li>
+            <li>
+              <span class="roadmap-marker"></span>
+              <p>THEN</p>
+              <h3>Connect GitHub</h3>
+              <span>Workflow lookup, state mapping, caching, and failure handling</span>
+            </li>
+            <li>
+              <span class="roadmap-marker"></span>
+              <p>LAUNCH</p>
+              <h3>Open the endpoint</h3>
+              <span>Production hosting, documentation, examples, and monitoring</span>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="closing-section">
+        <div class="shell closing-card">
+          <div class="closing-lights" aria-hidden="true">
+            <span class="success"></span><span class="failure"></span><span class="running"></span><span class="unknown"></span>
+          </div>
+          <p class="section-number">FOLLOW ALONG</p>
+          <h2>Watch a small idea become<br>a useful public service.</h2>
+          <p>Review the design, open an issue, or follow the implementation on GitHub.</p>
+          <a class="button button-primary" href="https://github.com/KingBain/status-lights" rel="noreferrer">View the repository</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <span class="light success"></span><span class="light failure"></span><span class="light running"></span><span class="light unknown"></span>
+          </span>
+          <span>Status Lights</span>
+        </div>
+        <p>Open source and built in Canada.</p>
+        <a href="https://github.com/KingBain/status-lights/blob/main/LICENSE">MIT License</a>
+      </div>
+    </footer>
+  </body>
+</html>
