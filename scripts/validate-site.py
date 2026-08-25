@@ -88,7 +88,7 @@ def main() -> None:
     if parser.description_count != 1:
         problems.append("index.html must contain exactly one meta description")
 
-    required_ids = {"top", "how-it-works", "customize", "principles", "roadmap"}
+    required_ids = {"top", "install", "how-it-works", "customize", "principles", "roadmap"}
     missing_ids = sorted(required_ids - parser.ids)
 
     if missing_ids:
