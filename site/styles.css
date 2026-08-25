@@ -671,6 +671,10 @@ code {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.job-field {
+  grid-column: 1 / -1;
+}
+
 .appearance-fields {
   grid-template-columns: minmax(0, 1fr) 150px;
 }

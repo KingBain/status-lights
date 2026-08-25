@@ -54,9 +54,30 @@ test('parses the canonical route with defaults', static function (): void {
     expectSame('KingBain', $request['owner']);
     expectSame('status-lights', $request['repository']);
     expectSame('pages.yml', $request['workflow']);
+    expectSame(null, $request['job']);
     expectSame(40, $request['height']);
     expectSame(null, $request['width']);
     expectSame('', $request['text']);
+});
+
+test('parses a job route and appearance options', static function (): void {
+    $request = status_lights_parse_request(
+        '/github/KingBain/status-lights/pages.yml/job/Validate%20site/size/32'
+        . '/text/Validate%3A%20%7Bstatus%7D.svg',
+    );
+
+    expectSame('pages.yml', $request['workflow']);
+    expectSame('Validate site', $request['job']);
+    expectSame(32, $request['height']);
+    expectSame('Validate: {status}', $request['text']);
+});
+
+test('decodes a double-encoded slash inside a job name', static function (): void {
+    $request = status_lights_parse_request(
+        '/github/KingBain/status-lights/pages.yml/job/Build%252Fdeploy.svg',
+    );
+
+    expectSame('Build/deploy', $request['job']);
 });
 
 test('parses every URL emitted by the browser builder', static function (): void {
@@ -85,6 +106,30 @@ test('rejects unsafe or unsupported route options', static function (): void {
     expectRouteFailure('/github/owner/repository/workflow.yml/size/500.svg');
     expectRouteFailure('/github/owner/repository/workflow.yml/surprise/value.svg');
     expectRouteFailure('/github/owner/repository/workflow.yml/text/%00.svg');
+    expectRouteFailure('/github/owner/repository/workflow.yml/job/.svg');
+    expectRouteFailure('/github/owner/repository/workflow.yml/job/%00.svg');
+});
+
+test('finds an individual GitHub Actions job by display name', static function (): void {
+    $payload = [
+        'jobs' => [
+            ['name' => 'Validate site', 'status' => 'completed', 'conclusion' => 'success'],
+            ['name' => 'Deploy site', 'status' => 'in_progress', 'conclusion' => null],
+        ],
+    ];
+
+    expectSame(
+        STATUS_LIGHTS_SUCCESS,
+        status_lights_find_job_state($payload, 'Validate site'),
+    );
+    expectSame(
+        STATUS_LIGHTS_RUNNING,
+        status_lights_find_job_state($payload, 'Deploy site'),
+    );
+    expectSame(
+        STATUS_LIGHTS_UNKNOWN,
+        status_lights_find_job_state($payload, 'Missing job'),
+    );
 });
 
 test('maps GitHub workflow runs to stable states', static function (): void {
@@ -131,6 +176,19 @@ test('uses a square SVG when no text is requested', static function (): void {
 
     expect(str_contains($svg, 'width="40" height="40"'));
     expect(!str_contains($svg, '<text'));
+});
+
+test('identifies a selected job in accessible SVG text', static function (): void {
+    $request = status_lights_parse_request(
+        '/github/KingBain/status-lights/pages.yml/job/Deploy%20site.svg',
+    );
+    $svg = status_lights_render_svg($request, [
+        'state' => STATUS_LIGHTS_SUCCESS,
+        'cache_status' => 'miss',
+        'fetched_at' => 1,
+    ]);
+
+    expect(str_contains($svg, 'pages.yml job Deploy site status: Success'));
 });
 
 test('caches GitHub state and falls back to stale data', static function (): void {
@@ -198,6 +256,46 @@ test('preserves workflow filename case in cache keys', static function (): void 
 
     expectSame(STATUS_LIGHTS_SUCCESS, $lowercaseResult['state']);
     expectSame(STATUS_LIGHTS_FAILURE, $uppercaseResult['state']);
+    expectSame(2, $calls);
+
+    foreach (glob($directory . '/*') ?: [] as $path) {
+        unlink($path);
+    }
+    rmdir($directory);
+});
+
+test('keeps workflow and job cache entries separate', static function (): void {
+    $directory = sys_get_temp_dir() . '/status-lights-tests-' . bin2hex(random_bytes(6));
+    mkdir($directory, 0700, true);
+    $calls = 0;
+    $provider = static function (
+        string $owner,
+        string $repository,
+        string $workflow,
+        ?string $job,
+    ) use (&$calls): string {
+        $calls++;
+
+        return $job === null ? STATUS_LIGHTS_SUCCESS : STATUS_LIGHTS_FAILURE;
+    };
+    $config = [
+        'cache_directory' => $directory,
+        'cache_ttl' => 60,
+        'stale_ttl' => 3600,
+        'http_cache_ttl' => 60,
+        'github_timeout' => 5,
+        'github_token' => null,
+    ];
+    $workflow = requestFixture();
+    $job = status_lights_parse_request(
+        '/github/KingBain/status-lights/pages.yml/job/Validate%20site.svg',
+    );
+
+    $workflowResult = status_lights_resolve_state($workflow, $config, $provider, 1000);
+    $jobResult = status_lights_resolve_state($job, $config, $provider, 1000);
+
+    expectSame(STATUS_LIGHTS_SUCCESS, $workflowResult['state']);
+    expectSame(STATUS_LIGHTS_FAILURE, $jobResult['state']);
     expectSame(2, $calls);
 
     foreach (glob($directory . '/*') ?: [] as $path) {

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#111820">
     <meta
       name="description"
-      content="Status Lights turns GitHub Actions workflow results into compact, customizable SVG indicators for Markdown dashboards."
+      content="Status Lights turns GitHub Actions workflow and job results into compact, customizable SVG indicators for Markdown dashboards."
     >
     <meta property="og:title" content="Status Lights">
     <meta
@@ -155,15 +155,15 @@
               <h2>One URL. One answer.</h2>
             </div>
             <p>
-              Point the service at a public GitHub Actions workflow. It resolves the latest run,
-              maps the result to a stable state, and returns a cache-friendly SVG.
+              Point the service at a public GitHub Actions workflow or one of its jobs. It resolves
+              the latest run, maps the result to a stable state, and returns a cache-friendly SVG.
             </p>
           </div>
           <ol class="process-grid">
             <li>
               <span>01</span>
-              <h3>Name the workflow</h3>
-              <p>Owner, repository, and workflow filename live directly in the URL path.</p>
+              <h3>Name the target</h3>
+              <p>Identify a workflow, then optionally select a job by its Actions display name.</p>
               <code>g.statuslights.dev/github/acme/api/ci.yml.svg</code>
             </li>
             <li>
@@ -211,6 +211,10 @@
                   <label>
                     <span>Workflow</span>
                     <input id="workflow" name="workflow" value="pages.yml" maxlength="100" autocomplete="off">
+                  </label>
+                  <label class="job-field">
+                    <span>Job <small>Optional · use its Actions display name</small></span>
+                    <input id="job" name="job" placeholder="Validate site" maxlength="100" autocomplete="off">
                   </label>
                 </div>
               </fieldset>
@@ -284,7 +288,7 @@
               </div>
               <p class="preview-disclaimer">
                 The preview lets you inspect every state. Use the generated URL to retrieve the
-                latest real result for the workflow you entered.
+                latest real result for the workflow or job you entered.
               </p>
             </div>
           </div>
@@ -385,7 +389,7 @@
               <span class="roadmap-marker"></span>
               <p>SHIPPED</p>
               <h3>Connect GitHub</h3>
-              <span>Workflow lookup, state mapping, caching, and failure handling</span>
+              <span>Workflow and job lookup, state mapping, caching, and failure handling</span>
             </li>
             <li class="current">
               <span class="roadmap-marker"></span>
