@@ -6,6 +6,5 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH/app-data
     - /bin/cp generator/index.php $DEPLOYPATH/index.php
     - /bin/cp generator/app.php $DEPLOYPATH/app.php
-    - /bin/cp generator/.htaccess $DEPLOYPATH/.htaccess
     - /bin/chmod 0755 $DEPLOYPATH/cache
     - /bin/chmod 0755 $DEPLOYPATH/app-data

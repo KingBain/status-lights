@@ -15,8 +15,11 @@ Normal SVG requests do not call the GitHub REST API.
   helpers, and legacy request-time resolver used by the test suite.
 - `app-data/` contains generated repository, run, and status records. It must be writable by PHP and
   must never be served directly.
-- [`.htaccess`](.htaccess) routes requests to `app.php` and denies direct access to `app-data/`,
-  `cache/`, and the cPanel repository clone.
+
+The live service also depends on an `.htaccess` file in the deployment root. It routes requests to
+`app.php`, denies direct access to `app-data/`, `cache/`, and the cPanel repository clone, and
+contains the PHP handler block managed by cPanel's MultiPHP Manager. That file is intentionally not
+stored in this repository or copied during deployment.
 
 There is no Composer install or application build step.
 
@@ -127,13 +130,16 @@ The cPanel-managed clone and the live service are deliberately separate:
 └── index.php       # shared parser and renderer
 ```
 
-The root [`.cpanel.yml`](../.cpanel.yml) creates the runtime directories and deploys `app.php`,
-`index.php`, and the rewrite rules. It does not copy the documentation site, tests, Git metadata,
-or other repository content, and it does not delete existing hosting files.
+The root [`.cpanel.yml`](../.cpanel.yml) creates the runtime directories and deploys only `app.php`
+and `index.php`. It deliberately does not create, copy, or replace the live `.htaccess`, because
+cPanel's MultiPHP Manager owns the PHP handler block in that file. It also does not copy the
+documentation site, tests, Git metadata, or other repository content, and it does not delete
+existing hosting files.
 
-The live `.htaccess` must retain the PHP handler block managed by cPanel's MultiPHP Manager in
-addition to the Status Lights rewrite and access-denial rules. If a deployment replaces that block,
-reapply PHP 8.4 in MultiPHP Manager before testing the service.
+Maintain the Status Lights rewrite and access-denial rules in the live `.htaccess` alongside the
+cPanel-managed PHP handler block. A normal repository deployment leaves the complete file
+untouched. If the handler block is lost after a manual edit, reapply PHP 8.4 in MultiPHP Manager
+before testing the service.
 
 ### First App deployment
 
