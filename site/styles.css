@@ -155,7 +155,7 @@ code {
 .site-header nav {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 22px;
 }
 
 .site-header nav a {
@@ -169,11 +169,17 @@ code {
   color: var(--white);
 }
 
-.site-header nav .nav-github {
+.site-header nav .nav-cta {
   padding: 8px 14px;
-  color: var(--white);
-  border: 1px solid #4a5663;
+  color: #07130c;
+  background: var(--green-bright);
+  border: 1px solid var(--green-bright);
   border-radius: 7px;
+}
+
+.site-header nav .nav-cta:hover {
+  color: #07130c;
+  background: #55e18f;
 }
 
 .hero {
@@ -445,6 +451,7 @@ code {
 }
 
 .signal-section,
+.install-section,
 .how-section,
 .customizer-section,
 .capabilities-section,
@@ -465,6 +472,7 @@ code {
 }
 
 .signal-section h2,
+.install-copy h2,
 .section-heading h2,
 .principles-section h2,
 .roadmap-section h2,
@@ -543,6 +551,113 @@ code {
 .capabilities-section {
   background: var(--white);
   border-block: 1px solid var(--line);
+}
+
+.install-section {
+  background: var(--paper-deep);
+}
+
+.install-card {
+  display: grid;
+  overflow: hidden;
+  padding: clamp(36px, 6vw, 76px);
+  color: var(--white);
+  background: var(--ink-soft);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.85fr);
+  gap: clamp(48px, 8vw, 100px);
+}
+
+.install-copy h2 {
+  max-width: 650px;
+}
+
+.install-copy > p:not(.section-number, .install-warning) {
+  max-width: 650px;
+  margin: 28px 0 0;
+  color: #b9c2ca;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.install-copy .button {
+  margin-top: 32px;
+}
+
+.install-warning {
+  max-width: 620px;
+  margin: 18px 0 0;
+  color: var(--yellow-bright);
+  font-size: 13px;
+}
+
+.permission-panel {
+  align-self: center;
+  padding: 30px;
+  background: #111820;
+  border: 1px solid #3a4651;
+  border-radius: 10px;
+}
+
+.permission-heading {
+  margin: 0;
+  color: #7f8b96;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+
+.permission-panel dl {
+  margin: 18px 0 0;
+}
+
+.permission-panel dl > div {
+  display: grid;
+  padding: 18px 0;
+  border-top: 1px solid #34404c;
+  grid-template-columns: 120px 1fr;
+  gap: 18px;
+}
+
+.permission-panel dt {
+  color: #dce1e6;
+  font-weight: 750;
+}
+
+.permission-panel dd {
+  margin: 0;
+  color: #8f9ba6;
+  font-size: 13px;
+}
+
+.permission-panel dd span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--green-bright);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.permission-panel dd .permission-none {
+  color: #aab4bf;
+}
+
+.first-event-note {
+  margin: 18px 0 0;
+  padding: 18px;
+  color: #aeb8c1;
+  background: #17212a;
+  border-left: 3px solid var(--yellow-bright);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.first-event-note strong {
+  color: var(--white);
 }
 
 .section-heading {
@@ -1080,6 +1195,14 @@ input[type="range"] {
   font-size: 18px;
 }
 
+.closing-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .closing-lights {
   display: grid;
   position: absolute;
@@ -1156,6 +1279,7 @@ input[type="range"] {
   .hero-grid,
   .builder,
   .comparison-grid,
+  .install-card,
   .principles-grid {
     grid-template-columns: 1fr;
   }
@@ -1192,12 +1316,13 @@ input[type="range"] {
     min-height: 62px;
   }
 
-  .site-header nav a:not(.nav-github) {
+  .site-header nav a:not(.nav-cta) {
     display: none;
   }
 
   .hero,
   .signal-section,
+  .install-section,
   .how-section,
   .customizer-section,
   .capabilities-section,
@@ -1213,6 +1338,19 @@ input[type="range"] {
   .hero-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .install-card {
+    padding: 44px 26px;
+  }
+
+  .permission-panel {
+    padding: 24px;
+  }
+
+  .permission-panel dl > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   .hero-actions .button {
@@ -1313,6 +1451,15 @@ input[type="range"] {
 
   .closing-card {
     padding: 48px 26px;
+  }
+
+  .closing-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .closing-actions .button {
+    width: 100%;
   }
 
   .closing-lights {
