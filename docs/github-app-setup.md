@@ -84,10 +84,10 @@ STATUS_LIGHTS_APP_STORE_DIR=/path/to/app-data \
   php scripts/prune-app-runs.php
 ```
 
-Set `STATUS_LIGHTS_RUN_RETENTION_DAYS` from 1 through 365 to change the retention period. The
-included cPanel pull/deploy cron invokes the maintenance command on every polling cycle; an app-data
-lock limits the scan itself to once per day. `STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS` can change
-that interval from 300 through 604800 seconds.
+Set `STATUS_LIGHTS_RUN_RETENTION_DAYS` from 1 through 365 to change the retention period. Schedule
+the command with your hosting platform's task runner or another cron-compatible scheduler. An
+app-data lock prevents overlapping scans, and `STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS` controls
+the minimum interval between scans from 300 through 604800 seconds.
 
 ## Security model
 

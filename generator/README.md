@@ -14,13 +14,12 @@ Normal SVG requests do not call the GitHub REST API.
 - [`index.php`](index.php) provides the shared URL parser, state mapping, SVG renderer, response
   helpers, and legacy request-time resolver used by the test suite.
 - `app-data/` contains generated repository, run, and status records. It must be writable by PHP,
-  must never be served directly, and has its transient run records pruned automatically by the
-  cPanel maintenance script.
+  must never be served directly, and should have its transient run records pruned with the included
+  maintenance command.
 
-The live service also depends on an `.htaccess` file in the deployment root. It routes requests to
-`app.php`, denies direct access to `app-data/`, `cache/`, and the cPanel repository clone, and
-contains the PHP handler block managed by cPanel's MultiPHP Manager. That file is intentionally not
-stored in this repository or copied during deployment.
+The hosting environment must route the health, webhook, and SVG paths to `app.php` and prevent
+direct HTTP access to runtime data, caches, and repository files. Keep platform-specific routing
+and PHP configuration on the host; no web-server configuration file is shipped with the application.
 
 There is no Composer install or application build step.
 
@@ -28,7 +27,7 @@ There is no Composer install or application build step.
 
 - PHP 8.3 or newer
 - PHP JSON extension
-- Apache or LiteSpeed with `mod_rewrite`-compatible rules
+- A web server or application platform that can route requests to the PHP entry point
 - A writable `app-data` directory beside `app.php`, or a writable path configured through
   `STATUS_LIGHTS_APP_STORE_DIR`
 
@@ -61,7 +60,6 @@ The backend has no runtime or test dependencies:
 ```bash
 find generator scripts -name '*.php' -print0 | xargs -0 -n1 php -l
 php generator/tests/run.php
-bash -n scripts/cpanel-pull-deploy.sh
 ```
 
 ## App configuration
@@ -121,71 +119,33 @@ HTTP 200 so GitHub can verify the webhook during App registration.
 The endpoint returns HTTP 503 with `"status":"degraded"` when the state directory is not writable
 or the webhook secret is missing.
 
-## cPanel layout
+## Deploy and maintain
 
-The cPanel-managed clone and the live service are deliberately separate:
+There is no build step. Deploy `app.php` and `index.php` together on a PHP 8.3-or-newer host,
+and provide a persistent writable directory for application state:
 
 ```text
-/home/kingbain/g.statuslights.dev/
-├── .htaccess       # routing and access-denial rules
-├── app-data/       # writable webhook state
-├── app.php         # production GitHub App entry point
-├── cache/          # legacy resolver cache
-├── cgi-bin/        # existing cPanel directory, left untouched
-├── gh/             # cPanel-managed clone of this repository
-└── index.php       # shared parser and renderer
+/path/to/status-lights/
+├── app.php
+├── index.php
+└── app-data/       # writable by PHP; never served directly
 ```
 
-The root [`.cpanel.yml`](../.cpanel.yml) creates the runtime directories and deploys only `app.php`
-and `index.php`. It deliberately does not create, copy, or replace the live `.htaccess`, because
-cPanel's MultiPHP Manager owns the PHP handler block in that file. It also does not copy the
-documentation site, tests, Git metadata, or other repository content, and it does not delete
-existing hosting files.
+Configure the hosting environment to:
 
-Maintain the Status Lights rewrite and access-denial rules in the live `.htaccess` alongside the
-cPanel-managed PHP handler block. A normal repository deployment leaves the complete file
-untouched. If the handler block is lost after a manual edit, reapply PHP 8.4 in MultiPHP Manager
-before testing the service.
+1. set `STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET` through its environment or secret configuration;
+2. set any optional environment variables from the table above;
+3. route `/health`, `/webhooks/github`, and `/github/...` requests to `app.php`;
+4. keep `app-data/`, caches, source files, and repository metadata outside the public path or deny
+   direct HTTP access to them;
+5. provide HTTPS for the webhook and public SVG endpoints; and
+6. apply request throttling at the web server, platform edge, or WAF.
 
-### First App deployment
+After deployment, request `https://your-status-lights-host.example/health` and confirm that
+`app_store_writable` and `webhook_secret_configured` are both `true`.
 
-1. Open **cPanel → Git Version Control**.
-2. Open **Manage** for `/home/kingbain/g.statuslights.dev/gh`.
-3. Select **Update from Remote**.
-4. Select **Deploy HEAD Commit**.
-5. Confirm the live `.htaccess` still contains cPanel's PHP handler block.
-6. Open `https://g.statuslights.dev/health` and confirm the service is
-   `status-lights-github-app` with both checks set to `true`.
-7. In the GitHub App settings, use **Redeliver** on a recent webhook or run a selected repository's
-   workflow on its default branch.
-
-### Automatic pull deployment
-
-The repository includes [`scripts/cpanel-pull-deploy.sh`](../scripts/cpanel-pull-deploy.sh). It:
-
-1. refuses to run when the cPanel clone contains uncommitted changes;
-2. pulls `main` from GitHub using `--ff-only`;
-3. asks cPanel UAPI to run `.cpanel.yml` when a new commit arrives; and
-4. removes workflow run-link records older than seven days, including on no-change checks.
-
-In **cPanel → Cron Jobs**, choose **Once Per 5 Minutes** and put this value in the **Command** field:
-
-```bash
-/bin/bash /home/kingbain/g.statuslights.dev/gh/scripts/cpanel-pull-deploy.sh
-```
-
-This polling deploys repository changes and performs lightweight app-data maintenance; it is
-separate from the GitHub App webhook that delivers workflow state. Successful no-change checks with
-nothing to prune are silent. Pull, deployment, or pruning errors are written to the cron job's
-standard error output.
-
-The script defaults to the known WHC paths. Its repository path, app-data path, branch, Git
-executable, PHP executable, and UAPI executable can be overridden with
-`STATUS_LIGHTS_REPOSITORY_PATH`, `STATUS_LIGHTS_APP_STORE_DIR`, `STATUS_LIGHTS_BRANCH`,
-`STATUS_LIGHTS_GIT_BIN`, `STATUS_LIGHTS_PHP_BIN`, and `STATUS_LIGHTS_UAPI_BIN`.
-
-Self-hosters who do not use the cPanel pull script should run the dependency-free pruning command
-at least once per day:
+Schedule the dependency-free pruning command at least once per day using the task scheduler supplied
+by the host:
 
 ```bash
 STATUS_LIGHTS_APP_STORE_DIR=/path/to/app-data \
@@ -193,7 +153,9 @@ STATUS_LIGHTS_APP_STORE_DIR=/path/to/app-data \
 ```
 
 Only transient files in `app-data/runs/` are pruned. Current repository and workflow/job status
-records remain available.
+records remain available. Use `STATUS_LIGHTS_RUN_RETENTION_DAYS` and
+`STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS` to control retention and the minimum interval between
+scans.
 
 ## Public endpoint rate limiting
 
