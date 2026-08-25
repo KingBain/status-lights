@@ -21,15 +21,41 @@ and its individual jobs.
 | ↳ Test with PHP 8.4 job | [![PHP 8.4 job status](https://g.statuslights.dev/github/KingBain/status-lights/generator.yml/job/Test%20with%20PHP%208.4/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/generator.yml) |
 | ↳ Test with PHP 8.5 job | [![PHP 8.5 job status](https://g.statuslights.dev/github/KingBain/status-lights/generator.yml/job/Test%20with%20PHP%208.5/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/generator.yml) |
 
+## Quick start
+
+1. [Install the Status Lights GitHub App](https://github.com/apps/status-lights) and grant it access
+   only to the public repositories you want to use.
+2. Run the workflow on the repository's default branch. GitHub will send Status Lights the first
+   workflow and job states.
+3. Use the builder at [statuslights.dev](https://statuslights.dev/#customize) or write the URL
+   directly.
+4. Embed the SVG anywhere an image URL works.
+
+```markdown
+[![Pages status](https://g.statuslights.dev/github/KingBain/status-lights/pages.yml.svg)](https://github.com/KingBain/status-lights/actions/workflows/pages.yml)
+```
+
+The App asks for **Actions: read-only** access plus GitHub's automatic **Metadata: read-only**
+permission. It has no repository write permission and never needs your personal access token. A
+newly installed repository shows `unknown` until the selected workflow runs once after installation.
+
+Status-light URLs are public and do not require authentication. Install the public service only on
+public repositories. See the [getting-started guide](docs/getting-started.md) for workflow and job
+examples, permission details, and troubleshooting.
+
 ## GitHub App architecture
 
-Status Lights is moving from request-time GitHub API polling to an installable GitHub App. GitHub
+Status Lights uses an installable GitHub App instead of request-time GitHub API polling. GitHub
 sends `workflow_run` and `workflow_job` webhook events to the PHP backend, which stores the latest
 state locally. SVG requests then read that local state rather than consuming GitHub REST API quota.
 
+Every webhook is verified with GitHub's HMAC-SHA256 signature. The App stores only the repository,
+workflow, job, run, installation, and status metadata needed to serve the lights.
+
 The App needs only read-only GitHub Actions access. It does not need repository write access or a
-personal access token. See [`docs/github-app-setup.md`](docs/github-app-setup.md) for registration,
-permissions, webhook, hosting, and installation instructions.
+personal access token. Operators running their own instance can follow
+[`docs/github-app-setup.md`](docs/github-app-setup.md) for registration, webhook, hosting, and
+security configuration.
 
 ## Website
 
@@ -64,8 +90,8 @@ php generator/tests/run.php
 bash -n scripts/cpanel-pull-deploy.sh
 ```
 
-The PHP backend remains dependency-free. Generator setup, configuration, URL options, and the cPanel
-pull deployment are documented in [`generator/README.md`](generator/README.md).
+The PHP backend remains dependency-free. GitHub App runtime setup, configuration, URL options, and
+the cPanel pull deployment are documented in [`generator/README.md`](generator/README.md).
 
 ## Project direction
 
