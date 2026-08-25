@@ -93,10 +93,11 @@ The repository includes [`scripts/cpanel-pull-deploy.sh`](../scripts/cpanel-pull
 3. exits without deploying when the commit did not change; and
 4. asks cPanel UAPI to run `.cpanel.yml` when a new commit arrives.
 
-In **cPanel → Cron Jobs**, add this command at a five-minute interval:
+In **cPanel → Cron Jobs**, choose **Once Per 5 Minutes** (or set the minute field to `*/5` and the
+other schedule fields to `*`). Put only this value in the **Command** field:
 
-```cron
-*/5 * * * * /bin/bash /home/kingbain/g.statuslights.dev/gh/scripts/cpanel-pull-deploy.sh
+```bash
+/bin/bash /home/kingbain/g.statuslights.dev/gh/scripts/cpanel-pull-deploy.sh
 ```
 
 This is polling, not a webhook. A GitHub push will normally reach the live service within five
