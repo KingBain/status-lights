@@ -1,0 +1,49 @@
+name: PHP generator
+
+on:
+  pull_request:
+    paths:
+      - ".cpanel.yml"
+      - ".github/workflows/generator.yml"
+      - "generator/**"
+      - "scripts/cpanel-pull-deploy.sh"
+  push:
+    branches:
+      - main
+    paths:
+      - ".cpanel.yml"
+      - ".github/workflows/generator.yml"
+      - "generator/**"
+      - "scripts/cpanel-pull-deploy.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test with PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4", "8.5"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, json
+          coverage: none
+
+      - name: Lint generator
+        run: find generator -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Test generator
+        run: php generator/tests/run.php
+
+      - name: Validate cPanel pull script
+        run: bash -n scripts/cpanel-pull-deploy.sh

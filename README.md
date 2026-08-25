@@ -1,25 +1,26 @@
 # Status Lights
 
-Status Lights is an open-source, free public service for turning GitHub Actions workflow results into compact, customizable SVG indicators.
+Status Lights is an open-source, free public service for turning GitHub Actions workflow results
+into compact, customizable SVG indicators.
 
-This repository is starting with the public website. The status-light service itself will follow in later pull requests.
+This repository contains the public website and the PHP generator service.
 
 ## Website
 
-The public documentation site is [statuslights.dev](https://statuslights.dev).
-The static site lives in [`site/`](site/) and is published with GitHub Pages after changes reach `main`.
+The public documentation site is [statuslights.dev](https://statuslights.dev). The static site lives
+in [`site/`](site/) and is published with GitHub Pages after changes reach `main`.
 
-The production generator will run separately at `g.statuslights.dev`. Its canonical GitHub
-Actions route will be:
+The generator source lives in [`generator/`](generator/) and runs separately at
+[`g.statuslights.dev`](https://g.statuslights.dev). Its canonical GitHub Actions route is:
 
 ```text
 https://g.statuslights.dev/github/{owner}/{repository}/{workflow}.svg
 ```
 
-The generator is not live yet; the website labels its generated URLs as planned until the
-production endpoint is available.
+The generator resolves the latest public workflow run on the repository's default branch, caches
+the state, and renders the result as an SVG.
 
-To view it locally:
+To view the documentation site locally:
 
 ```bash
 python3 -m http.server 8000 --directory site
@@ -32,7 +33,14 @@ Then open <http://localhost:8000>.
 ```bash
 python3 scripts/validate-site.py
 node --check site/script.js
+find generator -name '*.php' -print0 | xargs -0 -n1 php -l
+php generator/tests/run.php
+bash -n scripts/cpanel-pull-deploy.sh
 ```
+
+The PHP generator is a single-file, dependency-free application. Generator setup, configuration,
+URL options, and the cPanel pull deployment are documented in
+[`generator/README.md`](generator/README.md).
 
 ## Project direction
 
