@@ -3,5 +3,9 @@ deployment:
   tasks:
     - export DEPLOYPATH=/home/kingbain/g.statuslights.dev
     - /bin/mkdir -p $DEPLOYPATH/cache
+    - /bin/mkdir -p $DEPLOYPATH/app-data
     - /bin/cp generator/index.php $DEPLOYPATH/index.php
+    - /bin/cp generator/app.php $DEPLOYPATH/app.php
+    - /bin/cp generator/.htaccess $DEPLOYPATH/.htaccess
     - /bin/chmod 0755 $DEPLOYPATH/cache
+    - /bin/chmod 0755 $DEPLOYPATH/app-data

@@ -1,2 +1,4 @@
 /cache/*
 !/cache/.gitkeep
+/app-data/*
+!/app-data/.gitkeep

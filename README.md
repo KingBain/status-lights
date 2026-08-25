@@ -3,7 +3,8 @@
 Status Lights is an open-source, free public service for turning GitHub Actions workflow results
 into compact, customizable SVG indicators.
 
-This repository contains the public website and the PHP generator service.
+This repository contains the public website and the PHP backend for the installable Status Lights
+GitHub App.
 
 ## Project status
 
@@ -20,21 +21,30 @@ and its individual jobs.
 | ↳ Test with PHP 8.4 job | [![PHP 8.4 job status](https://g.statuslights.dev/github/KingBain/status-lights/generator.yml/job/Test%20with%20PHP%208.4/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/generator.yml) |
 | ↳ Test with PHP 8.5 job | [![PHP 8.5 job status](https://g.statuslights.dev/github/KingBain/status-lights/generator.yml/job/Test%20with%20PHP%208.5/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/generator.yml) |
 
+## GitHub App architecture
+
+Status Lights is moving from request-time GitHub API polling to an installable GitHub App. GitHub
+sends `workflow_run` and `workflow_job` webhook events to the PHP backend, which stores the latest
+state locally. SVG requests then read that local state rather than consuming GitHub REST API quota.
+
+The App needs only read-only GitHub Actions access. It does not need repository write access or a
+personal access token. See [`docs/github-app-setup.md`](docs/github-app-setup.md) for registration,
+permissions, webhook, hosting, and installation instructions.
+
 ## Website
 
 The public documentation site is [statuslights.dev](https://statuslights.dev). The static site lives
 in [`site/`](site/) and is published with GitHub Pages after changes reach `main`.
 
-The generator source lives in [`generator/`](generator/) and runs separately at
-[`g.statuslights.dev`](https://g.statuslights.dev). Its canonical GitHub Actions route is:
+The backend source lives in [`generator/`](generator/) and runs separately at
+[`g.statuslights.dev`](https://g.statuslights.dev). Its canonical GitHub Actions routes remain:
 
 ```text
 https://g.statuslights.dev/github/{owner}/{repository}/{workflow}.svg
 https://g.statuslights.dev/github/{owner}/{repository}/{workflow}/job/{job-name}.svg
 ```
 
-The generator resolves the latest public workflow run on the repository's default branch. It can
-render the whole workflow state or select an individual job by its display name.
+Installing the GitHub App does not change existing Status Lights URLs.
 
 To view the documentation site locally:
 
@@ -54,21 +64,21 @@ php generator/tests/run.php
 bash -n scripts/cpanel-pull-deploy.sh
 ```
 
-The PHP generator is a single-file, dependency-free application. Generator setup, configuration,
-URL options, and the cPanel pull deployment are documented in
-[`generator/README.md`](generator/README.md).
+The PHP backend remains dependency-free. Generator setup, configuration, URL options, and the cPanel
+pull deployment are documented in [`generator/README.md`](generator/README.md).
 
 ## Project direction
 
 - Free public access
+- Installable GitHub App
+- Webhook-driven GitHub Actions workflow and job state
 - Open-source implementation
-- GitHub Actions workflow status as the first provider
 - URL-based configuration
 - Custom text, size, font, corner radius, and state colours
 - Small SVG output designed for Markdown dashboards
 
-The public site and generator use separate hosts so the documentation can remain on GitHub Pages
-while the PHP service runs on its application host.
+The public site and backend use separate hosts so the documentation can remain on GitHub Pages while
+the PHP GitHub App backend runs on its application host.
 
 ## License
 
