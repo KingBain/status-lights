@@ -835,7 +835,14 @@ input[type="range"] {
   font-size: 9px;
 }
 
-.url-heading button {
+.url-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.url-heading button,
+.url-heading a {
   padding: 4px 8px;
   color: var(--green-bright);
   background: transparent;
@@ -846,7 +853,8 @@ input[type="range"] {
   cursor: pointer;
 }
 
-.url-heading button:hover {
+.url-heading button:hover,
+.url-heading a:hover {
   background: #17212a;
 }
 
@@ -985,7 +993,7 @@ input[type="range"] {
   right: 0;
   left: 0;
   height: 1px;
-  background: var(--line);
+  background: var(--green);
   content: "";
 }
 
@@ -1006,9 +1014,13 @@ input[type="range"] {
   border-radius: 50%;
 }
 
+.roadmap-list .complete .roadmap-marker,
 .roadmap-list .current .roadmap-marker {
   background: var(--green-bright);
   border-color: var(--green);
+}
+
+.roadmap-list .current .roadmap-marker {
   box-shadow: 0 0 0 6px rgba(26, 127, 55, 0.12);
 }
 
@@ -1017,6 +1029,7 @@ input[type="range"] {
   font-size: 10px;
 }
 
+.roadmap-list .complete > p,
 .roadmap-list .current > p {
   color: var(--green);
 }
@@ -1332,4 +1345,3 @@ input[type="range"] {
     transition-duration: 0.01ms !important;
   }
 }
-
