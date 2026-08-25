@@ -1,0 +1,19 @@
+{
+  "name": "kingbain/status-lights-generator",
+  "description": "Dependency-free SVG status light generator for public GitHub Actions workflows.",
+  "license": "MIT",
+  "type": "project",
+  "require": {
+    "php": ">=8.3",
+    "ext-curl": "*",
+    "ext-json": "*"
+  },
+  "scripts": {
+    "lint": "find public src tests router.php -name '*.php' -print0 | xargs -0 -n1 php -l",
+    "test": "php tests/run.php",
+    "check": [
+      "@lint",
+      "@test"
+    ]
+  }
+}
