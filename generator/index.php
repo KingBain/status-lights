@@ -5,24 +5,57 @@ declare(strict_types=1);
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
-const STATUS_LIGHTS_SUCCESS = 'success';
-const STATUS_LIGHTS_FAILURE = 'failure';
-const STATUS_LIGHTS_RUNNING = 'running';
-const STATUS_LIGHTS_UNKNOWN = 'unknown';
+enum StatusLightState: string
+{
+    case Success = 'success';
+    case Failure = 'failure';
+    case Running = 'running';
+    case Unknown = 'unknown';
 
-const STATUS_LIGHTS_STATES = [
-    STATUS_LIGHTS_SUCCESS,
-    STATUS_LIGHTS_FAILURE,
-    STATUS_LIGHTS_RUNNING,
-    STATUS_LIGHTS_UNKNOWN,
-];
+    public function label(): string
+    {
+        return match ($this) {
+            self::Success => 'Success',
+            self::Failure => 'Failure',
+            self::Running => 'Running',
+            self::Unknown => 'Unknown',
+        };
+    }
 
-const STATUS_LIGHTS_DEFAULT_COLORS = [
-    STATUS_LIGHTS_SUCCESS => '1a7f37',
-    STATUS_LIGHTS_FAILURE => 'cf222e',
-    STATUS_LIGHTS_RUNNING => 'bf8700',
-    STATUS_LIGHTS_UNKNOWN => '6e7781',
-];
+    public function defaultColor(): string
+    {
+        return match ($this) {
+            self::Success => '1a7f37',
+            self::Failure => 'cf222e',
+            self::Running => 'bf8700',
+            self::Unknown => '6e7781',
+        };
+    }
+}
+
+final readonly class LightRequest
+{
+    /** @param array<string, string> $colors */
+    public function __construct(
+        public string $owner,
+        public string $repository,
+        public string $workflow,
+        public ?string $job,
+        public int $height,
+        public ?int $width,
+        public string $font,
+        public int $fontSize,
+        public int $radius,
+        public string $text,
+        public array $colors,
+    ) {
+    }
+
+    public function color(StatusLightState $state): string
+    {
+        return $this->colors[$state->value];
+    }
+}
 
 final class StatusLightsRouteException extends RuntimeException
 {
@@ -84,22 +117,7 @@ function status_lights_environment_integer(
     return min(max((int) $value, $minimum), $maximum);
 }
 
-/**
- * @return array{
- *   owner: string,
- *   repository: string,
- *   workflow: string,
- *   job: string|null,
- *   height: int,
- *   width: int|null,
- *   font: string,
- *   font_size: int,
- *   radius: int,
- *   text: string,
- *   colors: array<string, string>
- * }
- */
-function status_lights_parse_request(string $requestUri): array
+function status_lights_parse_request(string $requestUri): LightRequest
 {
     $path = parse_url($requestUri, PHP_URL_PATH);
 
@@ -209,29 +227,30 @@ function status_lights_parse_request(string $requestUri): array
     );
     $radius = status_lights_integer_option($options, 'radius', 6, 0, intdiv($height, 2));
     $text = status_lights_text_option($options['text'] ?? '');
-    $colors = STATUS_LIGHTS_DEFAULT_COLORS;
+    $colors = [];
 
-    foreach (STATUS_LIGHTS_STATES as $state) {
-        $name = $state . '-color';
+    foreach (StatusLightState::cases() as $state) {
+        $name = $state->value . '-color';
+        $colors[$state->value] = $state->defaultColor();
 
         if (array_key_exists($name, $options)) {
-            $colors[$state] = status_lights_color_option($options[$name], $name);
+            $colors[$state->value] = status_lights_color_option($options[$name], $name);
         }
     }
 
-    return [
-        'owner' => $owner,
-        'repository' => $repository,
-        'workflow' => $workflow,
-        'job' => $job,
-        'height' => $height,
-        'width' => $width,
-        'font' => $font,
-        'font_size' => $fontSize,
-        'radius' => $radius,
-        'text' => $text,
-        'colors' => $colors,
-    ];
+    return new LightRequest(
+        owner: $owner,
+        repository: $repository,
+        workflow: $workflow,
+        job: $job,
+        height: $height,
+        width: $width,
+        font: $font,
+        fontSize: $fontSize,
+        radius: $radius,
+        text: $text,
+        colors: $colors,
+    );
 }
 
 function status_lights_job_option(string $value): string
@@ -326,21 +345,21 @@ function status_lights_assert_matches(string $value, string $pattern, string $na
 }
 
 /** @param array<string, mixed> $run */
-function status_lights_map_run_state(array $run): string
+function status_lights_map_run_state(array $run): StatusLightState
 {
     $status = strtolower((string) ($run['status'] ?? ''));
 
     if ($status !== '' && $status !== 'completed') {
-        return STATUS_LIGHTS_RUNNING;
+        return StatusLightState::Running;
     }
 
     $conclusion = strtolower((string) ($run['conclusion'] ?? ''));
 
     return match ($conclusion) {
-        'success' => STATUS_LIGHTS_SUCCESS,
+        'success' => StatusLightState::Success,
         'failure', 'cancelled', 'timed_out', 'action_required', 'startup_failure', 'stale'
-            => STATUS_LIGHTS_FAILURE,
-        default => STATUS_LIGHTS_UNKNOWN,
+            => StatusLightState::Failure,
+        default => StatusLightState::Unknown,
     };
 }
 
@@ -353,12 +372,12 @@ function status_lights_fetch_state(
     string $workflow,
     array $config,
     ?string $job = null,
-): string {
+): StatusLightState {
     $payload = status_lights_fetch_runs($owner, $repository, $workflow, $config);
     $run = $payload['workflow_runs'][0] ?? null;
 
     if (!is_array($run)) {
-        return STATUS_LIGHTS_UNKNOWN;
+        return StatusLightState::Unknown;
     }
 
     $defaultBranch = $run['repository']['default_branch'] ?? null;
@@ -376,7 +395,7 @@ function status_lights_fetch_state(
     }
 
     if (!is_array($run)) {
-        return STATUS_LIGHTS_UNKNOWN;
+        return StatusLightState::Unknown;
     }
 
     if ($job === null) {
@@ -386,7 +405,7 @@ function status_lights_fetch_state(
     $runId = $run['id'] ?? null;
 
     if (!is_int($runId)) {
-        return STATUS_LIGHTS_UNKNOWN;
+        return StatusLightState::Unknown;
     }
 
     $jobs = status_lights_fetch_jobs($owner, $repository, $runId, $config);
@@ -395,12 +414,12 @@ function status_lights_fetch_state(
 }
 
 /** @param array<string, mixed> $payload */
-function status_lights_find_job_state(array $payload, string $jobName): string
+function status_lights_find_job_state(array $payload, string $jobName): StatusLightState
 {
     $jobs = $payload['jobs'] ?? null;
 
     if (!is_array($jobs)) {
-        return STATUS_LIGHTS_UNKNOWN;
+        return StatusLightState::Unknown;
     }
 
     foreach ($jobs as $job) {
@@ -409,7 +428,7 @@ function status_lights_find_job_state(array $payload, string $jobName): string
         }
     }
 
-    return STATUS_LIGHTS_UNKNOWN;
+    return StatusLightState::Unknown;
 }
 
 /**
@@ -536,27 +555,26 @@ function status_lights_fetch_github_json(string $url, array $config): array
 }
 
 /**
- * @param array<string, mixed> $request
  * @param array<string, int|string|null> $config
- * @param callable(string, string, string, string|null): string|null $provider
- * @return array{state: string, cache_status: string, fetched_at: int}
+ * @param callable(string, string, string, string|null): StatusLightState|null $provider
+ * @return array{state: StatusLightState, cache_status: string, fetched_at: int}
  */
 function status_lights_resolve_state(
-    array $request,
+    LightRequest $request,
     array $config,
     ?callable $provider = null,
     ?int $now = null,
 ): array {
     $now ??= time();
     $keyParts = [
-        strtolower((string) $request['owner']),
-        strtolower((string) $request['repository']),
-        (string) $request['workflow'],
+        strtolower($request->owner),
+        strtolower($request->repository),
+        $request->workflow,
     ];
 
-    if (is_string($request['job'])) {
+    if ($request->job !== null) {
         $keyParts[] = 'job';
-        $keyParts[] = $request['job'];
+        $keyParts[] = $request->job;
     }
 
     $key = implode('/', $keyParts);
@@ -576,17 +594,17 @@ function status_lights_resolve_state(
         string $repository,
         string $workflow,
         ?string $job,
-    ): string => status_lights_fetch_state($owner, $repository, $workflow, $config, $job);
+    ): StatusLightState => status_lights_fetch_state($owner, $repository, $workflow, $config, $job);
 
     try {
         $state = $provider(
-            (string) $request['owner'],
-            (string) $request['repository'],
-            (string) $request['workflow'],
-            is_string($request['job']) ? $request['job'] : null,
+            $request->owner,
+            $request->repository,
+            $request->workflow,
+            $request->job,
         );
 
-        if (!in_array($state, STATUS_LIGHTS_STATES, true)) {
+        if (!$state instanceof StatusLightState) {
             throw new RuntimeException('The provider returned an unsupported state.');
         }
 
@@ -602,11 +620,15 @@ function status_lights_resolve_state(
             ];
         }
 
-        return ['state' => STATUS_LIGHTS_UNKNOWN, 'cache_status' => 'error', 'fetched_at' => $now];
+        return [
+            'state' => StatusLightState::Unknown,
+            'cache_status' => 'error',
+            'fetched_at' => $now,
+        ];
     }
 }
 
-/** @return array{state: string, fetched_at: int}|null */
+/** @return array{state: StatusLightState, fetched_at: int}|null */
 function status_lights_read_cache(string $directory, string $key): ?array
 {
     $path = status_lights_cache_path($directory, $key);
@@ -627,22 +649,19 @@ function status_lights_read_cache(string $directory, string $key): ?array
         return null;
     }
 
-    if (
-        !is_array($value)
-        || !isset($value['state'], $value['fetched_at'])
-        || !in_array($value['state'], STATUS_LIGHTS_STATES, true)
-        || !is_int($value['fetched_at'])
-    ) {
+    if (!is_array($value) || !is_string($value['state'] ?? null) || !is_int($value['fetched_at'] ?? null)) {
         return null;
     }
 
-    return ['state' => $value['state'], 'fetched_at' => $value['fetched_at']];
+    $state = StatusLightState::tryFrom($value['state']);
+
+    return $state === null ? null : ['state' => $state, 'fetched_at' => $value['fetched_at']];
 }
 
 function status_lights_write_cache(
     string $directory,
     string $key,
-    string $state,
+    StatusLightState $state,
     int $fetchedAt,
 ): void {
     if (!is_dir($directory) && !@mkdir($directory, 0755, true) && !is_dir($directory)) {
@@ -651,7 +670,7 @@ function status_lights_write_cache(
 
     try {
         $contents = json_encode(
-            ['state' => $state, 'fetched_at' => $fetchedAt],
+            ['state' => $state->value, 'fetched_at' => $fetchedAt],
             JSON_THROW_ON_ERROR,
         );
     } catch (JsonException) {
@@ -685,43 +704,35 @@ function status_lights_cache_path(string $directory, string $key): string
 }
 
 /**
- * @param array<string, mixed> $request
- * @param array{state: string, cache_status: string, fetched_at: int} $result
+ * @param array{state: StatusLightState, cache_status: string, fetched_at: int} $result
  */
-function status_lights_render_svg(array $request, array $result): string
+function status_lights_render_svg(LightRequest $request, array $result): string
 {
-    $labels = [
-        STATUS_LIGHTS_SUCCESS => 'Success',
-        STATUS_LIGHTS_FAILURE => 'Failure',
-        STATUS_LIGHTS_RUNNING => 'Running',
-        STATUS_LIGHTS_UNKNOWN => 'Unknown',
-    ];
     $fonts = [
         'sans' => 'Arial, Helvetica, sans-serif',
         'mono' => 'ui-monospace, SFMono-Regular, Consolas, monospace',
         'serif' => "Georgia, 'Times New Roman', serif",
     ];
     $state = $result['state'];
-    $statusLabel = $labels[$state];
-    $label = str_replace('{status}', $statusLabel, (string) $request['text']);
-    $width = is_int($request['width'])
-        ? $request['width']
+    $statusLabel = $state->label();
+    $label = str_replace('{status}', $statusLabel, $request->text);
+    $width = $request->width !== null
+        ? $request->width
         : status_lights_automatic_width(
             $label,
-            (int) $request['height'],
-            (int) $request['font_size'],
+            $request->height,
+            $request->fontSize,
         );
-    $colors = $request['colors'];
-    $color = (string) $colors[$state];
+    $color = $request->color($state);
     $background = '#' . $color;
     $foreground = status_lights_contrast_color($color);
-    $target = is_string($request['job'])
-        ? sprintf('%s job %s', $request['workflow'], $request['job'])
-        : (string) $request['workflow'];
+    $target = $request->job !== null
+        ? sprintf('%s job %s', $request->workflow, $request->job)
+        : $request->workflow;
     $title = sprintf(
         '%s/%s %s status: %s',
-        $request['owner'],
-        $request['repository'],
+        $request->owner,
+        $request->repository,
         $target,
         $statusLabel,
     );
@@ -730,17 +741,17 @@ function status_lights_render_svg(array $request, array $result): string
         sprintf(
             '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img" aria-labelledby="title" data-state="%s">',
             $width,
-            $request['height'],
+            $request->height,
             $width,
-            $request['height'],
-            $state,
+            $request->height,
+            $state->value,
         ),
         '<title id="title">' . status_lights_escape($title) . '</title>',
         sprintf(
             '<rect width="%d" height="%d" rx="%d" fill="%s"/>',
             $width,
-            $request['height'],
-            $request['radius'],
+            $request->height,
+            $request->radius,
             $background,
         ),
     ];
@@ -749,8 +760,8 @@ function status_lights_render_svg(array $request, array $result): string
         $svg[] = sprintf(
             '<text x="50%%" y="50%%" fill="%s" font-family="%s" font-size="%d" text-anchor="middle" dominant-baseline="central">%s</text>',
             $foreground,
-            status_lights_escape($fonts[$request['font']]),
-            $request['font_size'],
+            status_lights_escape($fonts[$request->font]),
+            $request->fontSize,
             status_lights_escape($label),
         );
     }
@@ -810,7 +821,7 @@ function status_lights_escape(string $value): string
 }
 
 /**
- * @param array{state: string, cache_status: string, fetched_at: int}|null $result
+ * @param array{state: StatusLightState, cache_status: string, fetched_at: int}|null $result
  */
 function status_lights_send_svg(
     string $body,
@@ -836,7 +847,7 @@ function status_lights_send_svg(
     header('ETag: ' . $etag);
 
     if ($result !== null) {
-        header('X-Status-Lights-State: ' . $result['state']);
+        header('X-Status-Lights-State: ' . $result['state']->value);
         header('X-Status-Lights-Cache: ' . $result['cache_status']);
     }
 

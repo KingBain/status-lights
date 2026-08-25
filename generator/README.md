@@ -13,8 +13,9 @@ Normal SVG requests do not call the GitHub REST API.
   SVG routes and resolves statuses from local webhook state.
 - [`index.php`](index.php) provides the shared URL parser, state mapping, SVG renderer, response
   helpers, and legacy request-time resolver used by the test suite.
-- `app-data/` contains generated repository, run, and status records. It must be writable by PHP and
-  must never be served directly.
+- `app-data/` contains generated repository, run, and status records. It must be writable by PHP,
+  must never be served directly, and has its transient run records pruned automatically by the
+  cPanel maintenance script.
 
 The live service also depends on an `.htaccess` file in the deployment root. It routes requests to
 `app.php`, denies direct access to `app-data/`, `cache/`, and the cPanel repository clone, and
@@ -58,7 +59,7 @@ webhook. The test suite exercises webhook handling without requiring a live GitH
 The backend has no runtime or test dependencies:
 
 ```bash
-find generator -name '*.php' -print0 | xargs -0 -n1 php -l
+find generator scripts -name '*.php' -print0 | xargs -0 -n1 php -l
 php generator/tests/run.php
 bash -n scripts/cpanel-pull-deploy.sh
 ```
@@ -69,6 +70,9 @@ bash -n scripts/cpanel-pull-deploy.sh
 | --- | ---: | --- |
 | `STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET` | unset | Required secret used to verify `X-Hub-Signature-256` |
 | `STATUS_LIGHTS_APP_STORE_DIR` | `app-data` beside `app.php` | Writable GitHub App state directory |
+| `STATUS_LIGHTS_MAX_WEBHOOK_BYTES` | `1048576` | Maximum accepted webhook body size (64 KiB to 25 MiB) |
+| `STATUS_LIGHTS_RUN_RETENTION_DAYS` | `7` | Workflow run-link retention used by the pruning script (1 to 365 days) |
+| `STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS` | `86400` | Minimum interval between scans (5 minutes to 7 days) |
 | `STATUS_LIGHTS_HTTP_CACHE_TTL` | `60` | Browser and image-proxy cache duration in seconds |
 
 The webhook secret must exactly match the secret configured in the GitHub App. Keep it out of the
@@ -87,15 +91,17 @@ permissions, events, and host configuration.
 
 GitHub sends `POST /webhooks/github` with an `X-Hub-Signature-256` header. Status Lights:
 
-1. verifies the complete request body with HMAC-SHA256;
+1. rejects request bodies larger than the configured limit and verifies the complete accepted body
+   with HMAC-SHA256;
 2. tracks installations and selected repositories from `installation` and
    `installation_repositories` events;
 3. records the latest default-branch workflow state from `workflow_run` events;
-4. associates `workflow_job` events with the workflow run and records the job display name; and
+4. temporarily associates `workflow_job` events with the workflow run and records the job display
+   name;
 5. returns HTTP 202 after accepting a supported or safely ignored event.
 
-Invalid signatures return HTTP 401. A `ping` event returns HTTP 200 so GitHub can verify the webhook
-during App registration.
+Oversized payloads return HTTP 413 and invalid signatures return HTTP 401. A `ping` event returns
+HTTP 200 so GitHub can verify the webhook during App registration.
 
 ## Health endpoint
 
@@ -159,8 +165,8 @@ The repository includes [`scripts/cpanel-pull-deploy.sh`](../scripts/cpanel-pull
 
 1. refuses to run when the cPanel clone contains uncommitted changes;
 2. pulls `main` from GitHub using `--ff-only`;
-3. exits without deploying when the commit did not change; and
-4. asks cPanel UAPI to run `.cpanel.yml` when a new commit arrives.
+3. asks cPanel UAPI to run `.cpanel.yml` when a new commit arrives; and
+4. removes workflow run-link records older than seven days, including on no-change checks.
 
 In **cPanel → Cron Jobs**, choose **Once Per 5 Minutes** and put this value in the **Command** field:
 
@@ -168,13 +174,34 @@ In **cPanel → Cron Jobs**, choose **Once Per 5 Minutes** and put this value in
 /bin/bash /home/kingbain/g.statuslights.dev/gh/scripts/cpanel-pull-deploy.sh
 ```
 
-This polling deploys repository changes; it is separate from the GitHub App webhook that delivers
-workflow state. Successful no-change checks are silent. Pull or deployment errors are written to the
-cron job's standard error output.
+This polling deploys repository changes and performs lightweight app-data maintenance; it is
+separate from the GitHub App webhook that delivers workflow state. Successful no-change checks with
+nothing to prune are silent. Pull, deployment, or pruning errors are written to the cron job's
+standard error output.
 
-The script defaults to the known WHC paths. Its repository path, branch, Git executable, and UAPI
-executable can be overridden with `STATUS_LIGHTS_REPOSITORY_PATH`, `STATUS_LIGHTS_BRANCH`,
-`STATUS_LIGHTS_GIT_BIN`, and `STATUS_LIGHTS_UAPI_BIN`.
+The script defaults to the known WHC paths. Its repository path, app-data path, branch, Git
+executable, PHP executable, and UAPI executable can be overridden with
+`STATUS_LIGHTS_REPOSITORY_PATH`, `STATUS_LIGHTS_APP_STORE_DIR`, `STATUS_LIGHTS_BRANCH`,
+`STATUS_LIGHTS_GIT_BIN`, `STATUS_LIGHTS_PHP_BIN`, and `STATUS_LIGHTS_UAPI_BIN`.
+
+Self-hosters who do not use the cPanel pull script should run the dependency-free pruning command
+at least once per day:
+
+```bash
+STATUS_LIGHTS_APP_STORE_DIR=/path/to/app-data \
+  php scripts/prune-app-runs.php
+```
+
+Only transient files in `app-data/runs/` are pruned. Current repository and workflow/job status
+records remain available.
+
+## Public endpoint rate limiting
+
+Apply request throttling at the web server or WAF for the public SVG routes. That layer can reject
+abusive clients before PHP starts and can combine rate limits with edge caching. A file-per-IP PHP
+limiter is intentionally not included because it would add disk I/O to every request and create a
+second unbounded file store. Keep `/health` and `/webhooks/github` on separate rules so monitoring
+and signed GitHub deliveries are not accidentally blocked by SVG traffic limits.
 
 ## URL format
 

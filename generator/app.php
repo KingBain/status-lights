@@ -2,8 +2,15 @@
 
 declare(strict_types=1);
 
-define('STATUS_LIGHTS_TESTING', true);
-require __DIR__ . '/index.php';
+if (!defined('STATUS_LIGHTS_TESTING')) {
+    define('STATUS_LIGHTS_TESTING', true);
+}
+
+require_once __DIR__ . '/index.php';
+
+final class StatusLightsPayloadTooLargeException extends RuntimeException
+{
+}
 
 function status_lights_app_store_dir(): string
 {
@@ -14,6 +21,16 @@ function status_lights_app_store_dir(): string
 function status_lights_app_webhook_secret(): string
 {
     return status_lights_environment('STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET');
+}
+
+function status_lights_app_max_webhook_bytes(): int
+{
+    return status_lights_environment_integer(
+        'STATUS_LIGHTS_MAX_WEBHOOK_BYTES',
+        1048576,
+        65536,
+        26214400,
+    );
 }
 
 function status_lights_app_key(string ...$parts): string
@@ -62,6 +79,75 @@ function status_lights_app_read(string $kind, string $key): ?array
     }
 
     return is_array($value) ? $value : null;
+}
+
+function status_lights_app_prune_runs_older_than(int $cutoff): int
+{
+    $directory = status_lights_app_store_dir() . '/runs';
+    if (!is_dir($directory)) {
+        return 0;
+    }
+
+    try {
+        $files = new FilesystemIterator($directory, FilesystemIterator::SKIP_DOTS);
+    } catch (UnexpectedValueException) {
+        return 0;
+    }
+
+    $deleted = 0;
+
+    foreach ($files as $file) {
+        if (!$file->isFile() || strtolower($file->getExtension()) !== 'json') {
+            continue;
+        }
+
+        $modifiedAt = @filemtime($file->getPathname());
+        if (is_int($modifiedAt) && $modifiedAt < $cutoff && @unlink($file->getPathname())) {
+            $deleted++;
+        }
+    }
+
+    return $deleted;
+}
+
+/** @param resource|null $input */
+function status_lights_app_read_webhook_body($input = null): string
+{
+    $maximumBytes = status_lights_app_max_webhook_bytes();
+    $contentLength = $_SERVER['CONTENT_LENGTH'] ?? null;
+
+    if (
+        is_string($contentLength)
+        && filter_var($contentLength, FILTER_VALIDATE_INT) !== false
+        && (int) $contentLength > $maximumBytes
+    ) {
+        throw new StatusLightsPayloadTooLargeException('Webhook payload is too large.');
+    }
+
+    $closeInput = false;
+    if ($input === null) {
+        $input = @fopen('php://input', 'rb');
+        $closeInput = true;
+    }
+
+    if (!is_resource($input)) {
+        throw new RuntimeException('Unable to read webhook payload.');
+    }
+
+    $body = stream_get_contents($input, $maximumBytes + 1);
+    if ($closeInput) {
+        fclose($input);
+    }
+
+    if (!is_string($body)) {
+        throw new RuntimeException('Unable to read webhook payload.');
+    }
+
+    if (strlen($body) > $maximumBytes) {
+        throw new StatusLightsPayloadTooLargeException('Webhook payload is too large.');
+    }
+
+    return $body;
 }
 
 function status_lights_app_repo_key(string $owner, string $repository): string
@@ -175,7 +261,7 @@ function status_lights_app_handle_workflow_run(array $payload): void
         'updated_at' => $now,
     ]);
     status_lights_app_write('statuses', status_lights_app_status_key($owner, $name, $workflow), [
-        'state' => $state,
+        'state' => $state->value,
         'updated_at' => $now,
         'run_id' => $runId,
     ]);
@@ -212,7 +298,7 @@ function status_lights_app_handle_workflow_job(array $payload): void
     }
 
     status_lights_app_write('statuses', status_lights_app_status_key($owner, $name, $workflow, $jobName), [
-        'state' => status_lights_map_run_state($job),
+        'state' => status_lights_map_run_state($job)->value,
         'updated_at' => time(),
         'run_id' => $runId,
     ]);
@@ -224,8 +310,15 @@ function status_lights_app_handle_webhook(): never
         status_lights_send_json(['error' => 'Method not allowed'], 405);
     }
 
-    $body = file_get_contents('php://input');
-    if (!is_string($body) || !status_lights_app_verify_signature($body)) {
+    try {
+        $body = status_lights_app_read_webhook_body();
+    } catch (StatusLightsPayloadTooLargeException) {
+        status_lights_send_json(['error' => 'Webhook payload is too large'], 413);
+    } catch (RuntimeException) {
+        status_lights_send_json(['error' => 'Unable to read webhook payload'], 400);
+    }
+
+    if (!status_lights_app_verify_signature($body)) {
         status_lights_send_json(['error' => 'Invalid webhook signature'], 401);
     }
 
@@ -255,22 +348,37 @@ function status_lights_app_handle_webhook(): never
     status_lights_send_json(['status' => 'accepted', 'event' => $event], 202);
 }
 
-function status_lights_app_resolve(array $request): array
+/** @return array{state: StatusLightState, cache_status: string, fetched_at: int} */
+function status_lights_app_resolve(LightRequest $request): array
 {
-    $owner = (string) $request['owner'];
-    $repository = (string) $request['repository'];
-    $workflow = (string) $request['workflow'];
-    $job = is_string($request['job']) ? $request['job'] : null;
-    $repo = status_lights_app_read('repositories', status_lights_app_repo_key($owner, $repository));
+    $repo = status_lights_app_read(
+        'repositories',
+        status_lights_app_repo_key($request->owner, $request->repository),
+    );
     $installed = ($repo['installed'] ?? false) === true;
-    $status = status_lights_app_read('statuses', status_lights_app_status_key($owner, $repository, $workflow, $job));
+    $status = status_lights_app_read(
+        'statuses',
+        status_lights_app_status_key(
+            $request->owner,
+            $request->repository,
+            $request->workflow,
+            $request->job,
+        ),
+    );
+    $state = is_string($status['state'] ?? null)
+        ? StatusLightState::tryFrom($status['state'])
+        : null;
 
-    if (!$installed || !is_array($status) || !in_array($status['state'] ?? null, STATUS_LIGHTS_STATES, true)) {
-        return ['state' => STATUS_LIGHTS_UNKNOWN, 'cache_status' => $installed ? 'app-empty' : 'not-installed', 'fetched_at' => time()];
+    if (!$installed || $state === null) {
+        return [
+            'state' => StatusLightState::Unknown,
+            'cache_status' => $installed ? 'app-empty' : 'not-installed',
+            'fetched_at' => time(),
+        ];
     }
 
     return [
-        'state' => $status['state'],
+        'state' => $state,
         'cache_status' => 'webhook',
         'fetched_at' => is_int($status['updated_at'] ?? null) ? $status['updated_at'] : time(),
     ];
@@ -315,4 +423,6 @@ function status_lights_app_main(): never
     }
 }
 
-status_lights_app_main();
+if (!defined('STATUS_LIGHTS_APP_TESTING')) {
+    status_lights_app_main();
+}

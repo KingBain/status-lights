@@ -6,7 +6,7 @@ on:
       - ".cpanel.yml"
       - ".github/workflows/generator.yml"
       - "generator/**"
-      - "scripts/cpanel-pull-deploy.sh"
+      - "scripts/**"
   push:
     branches:
       - main
@@ -14,7 +14,7 @@ on:
       - ".cpanel.yml"
       - ".github/workflows/generator.yml"
       - "generator/**"
-      - "scripts/cpanel-pull-deploy.sh"
+      - "scripts/**"
   workflow_dispatch:
 
 permissions:
@@ -40,7 +40,7 @@ jobs:
           coverage: none
 
       - name: Lint generator
-        run: find generator -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: find generator scripts -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Test generator
         run: php generator/tests/run.php
