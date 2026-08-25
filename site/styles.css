@@ -835,14 +835,7 @@ input[type="range"] {
   font-size: 9px;
 }
 
-.url-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.url-heading button,
-.url-heading a {
+.url-heading button {
   padding: 4px 8px;
   color: var(--green-bright);
   background: transparent;
@@ -853,8 +846,7 @@ input[type="range"] {
   cursor: pointer;
 }
 
-.url-heading button:hover,
-.url-heading a:hover {
+.url-heading button:hover {
   background: #17212a;
 }
 

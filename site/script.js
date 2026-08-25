@@ -29,7 +29,6 @@
     previewText: document.querySelector("#preview-text"),
     previewTitle: document.querySelector("#preview-title"),
     generatedUrl: document.querySelector("#generated-url"),
-    openUrl: document.querySelector("#open-url"),
     copyButton: document.querySelector("#copy-url"),
   };
 
@@ -138,9 +137,7 @@
       path[path.length - 1] = `${path[path.length - 1]}.svg`;
     }
 
-    const generatedUrl = `${generatorOrigin}${path.join("/")}`;
-    elements.generatedUrl.textContent = generatedUrl;
-    elements.openUrl.href = generatedUrl;
+    elements.generatedUrl.textContent = `${generatorOrigin}${path.join("/")}`;
   };
 
   const copyUrl = async () => {
