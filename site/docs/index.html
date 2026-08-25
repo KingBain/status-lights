@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#111820">
+    <meta
+      name="description"
+      content="Install Status Lights, build workflow and job indicator URLs, troubleshoot results, or deploy your own instance."
+    >
+    <meta property="og:title" content="Documentation — Status Lights">
+    <meta
+      property="og:description"
+      content="Everything you need to install, configure, embed, and self-host Status Lights."
+    >
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://statuslights.dev/docs/">
+    <title>Documentation — Status Lights</title>
+    <link rel="canonical" href="https://statuslights.dev/docs/">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body id="top">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="../" aria-label="Status Lights home">
+          <span class="brand-mark" aria-hidden="true">
+            <span class="light success"></span>
+            <span class="light failure"></span>
+            <span class="light running"></span>
+            <span class="light unknown"></span>
+          </span>
+          <span>Status Lights</span>
+        </a>
+        <nav aria-label="Primary navigation">
+          <a href="../">Home</a>
+          <a href="#getting-started">Get started</a>
+          <a href="#url-reference">URL reference</a>
+          <a href="#self-hosting">Self-hosting</a>
+          <a
+            class="nav-cta"
+            href="https://github.com/apps/status-lights"
+            rel="noreferrer"
+          >Install app</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="docs-hero">
+        <div class="shell">
+          <p class="eyebrow"><span class="pulse-dot"></span> Documentation</p>
+          <h1>From workflow run<br>to status light.</h1>
+          <p>
+            Install the GitHub App, build a URL, and place a live GitHub Actions indicator anywhere
+            that accepts an image. No personal access token and no request-time GitHub API polling.
+          </p>
+        </div>
+      </section>
+
+      <div class="shell docs-layout">
+        <aside class="docs-sidebar" aria-label="Documentation sections">
+          <p>On this page</p>
+          <nav>
+            <a href="#getting-started">Getting started</a>
+            <a href="#install">Install the App</a>
+            <a href="#build-a-url">Build a URL</a>
+            <a href="#embed">Embed the light</a>
+            <a href="#url-reference">URL reference</a>
+            <a href="#troubleshooting">Troubleshooting</a>
+            <a href="#self-hosting">Self-hosting</a>
+            <a href="#security">Security model</a>
+          </nav>
+        </aside>
+
+        <article class="docs-content">
+          <section id="getting-started">
+            <p class="docs-kicker">01 / GETTING STARTED</p>
+            <h2>Publish your first status light</h2>
+            <p class="docs-lede">
+              Status Lights is a free GitHub App for public repositories. GitHub sends signed
+              workflow and job events to the service, which stores only the latest state needed to
+              return a compact SVG.
+            </p>
+
+            <div class="docs-callout docs-callout-warning">
+              <strong>Public repositories only.</strong>
+              Status-light URLs are public and unauthenticated. Do not install the public service
+              on a private repository.
+            </div>
+
+            <h3>Before you start</h3>
+            <ul>
+              <li>A public repository that uses GitHub Actions.</li>
+              <li>Permission to install a GitHub App for the repository owner or organization.</li>
+              <li>The workflow filename, such as <code>pages.yml</code> or <code>ci.yaml</code>.</li>
+            </ul>
+          </section>
+
+          <section id="install">
+            <h3><span class="docs-step">1</span> Install the GitHub App</h3>
+            <p>
+              Open the <a href="https://github.com/apps/status-lights">Status Lights GitHub App</a>,
+              choose <strong>Install</strong>, and select only the public repositories whose status
+              you want to publish.
+            </p>
+
+            <div class="docs-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Repository access</th>
+                    <th>Level</th>
+                    <th>Used for</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Actions</td>
+                    <td><span class="docs-pill">Read-only</span></td>
+                    <td>Receive workflow and job status events</td>
+                  </tr>
+                  <tr>
+                    <td>Metadata</td>
+                    <td><span class="docs-pill">Read-only</span></td>
+                    <td>Identify the repository and default branch; granted automatically</td>
+                  </tr>
+                  <tr>
+                    <td>Everything else</td>
+                    <td><span class="docs-pill docs-pill-muted">No access</span></td>
+                    <td>No code, workflow, settings, or repository write permission</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p>
+              Status Lights cannot push code, change workflows, merge pull requests, or modify
+              repository settings. It never asks for a personal access token.
+            </p>
+
+            <h3><span class="docs-step">2</span> Run the workflow once</h3>
+            <p>
+              Run the workflow on the repository's default branch after installing the App. GitHub
+              does not replay older events during installation, so a new workflow or job light is
+              gray and reports <code>unknown</code> until its first new event arrives.
+            </p>
+          </section>
+
+          <section id="build-a-url">
+            <h3><span class="docs-step">3</span> Build the URL</h3>
+            <p>
+              The easiest route is the <a href="../#customize">interactive builder</a>. Enter the
+              owner, repository, workflow filename, and optionally a job display name.
+            </p>
+
+            <div class="docs-code">
+              <div><span>Workflow light</span></div>
+              <pre><code>https://g.statuslights.dev/github/{owner}/{repository}/{workflow}.svg</code></pre>
+            </div>
+
+            <div class="docs-code">
+              <div><span>Job light</span></div>
+              <pre><code>https://g.statuslights.dev/github/{owner}/{repository}/{workflow}/job/{job-name}.svg</code></pre>
+            </div>
+
+            <p>
+              For a job, use the display name shown on the Actions page or the workflow's
+              <code>name:</code> value—not the key beneath <code>jobs:</code>. Job names are
+              case-sensitive. URL-encode spaces and other path characters.
+            </p>
+
+            <div class="docs-code">
+              <div><span>Example job URL</span></div>
+              <pre><code>https://g.statuslights.dev/github/KingBain/status-lights/pages.yml/job/Validate%20site.svg</code></pre>
+            </div>
+          </section>
+
+          <section id="embed">
+            <h3><span class="docs-step">4</span> Embed the light</h3>
+            <p>Use the generated SVG URL anywhere a remote image is supported.</p>
+
+            <div class="docs-code">
+              <div><span>Markdown image</span></div>
+              <pre><code>![Pages workflow status](https://g.statuslights.dev/github/KingBain/status-lights/pages.yml.svg)</code></pre>
+            </div>
+
+            <div class="docs-code">
+              <div><span>Linked to the workflow</span></div>
+              <pre><code>[![Pages workflow status](https://g.statuslights.dev/github/KingBain/status-lights/pages.yml.svg)](https://github.com/KingBain/status-lights/actions/workflows/pages.yml)</code></pre>
+            </div>
+
+            <p>
+              The same URL works in Markdown dashboards, HTML pages, documentation sites, and issue
+              descriptions.
+            </p>
+
+            <h3>Change or remove access</h3>
+            <p>
+              Open your GitHub account or organization settings, go to
+              <strong>Applications → Installed GitHub Apps</strong>, and choose
+              <strong>Configure</strong> beside Status Lights. You can change the selected
+              repositories or uninstall the App. Removed repositories return the
+              <code>unknown</code> state.
+            </p>
+          </section>
+
+          <section id="url-reference">
+            <p class="docs-kicker">02 / REFERENCE</p>
+            <h2>URL format and options</h2>
+
+            <div class="docs-code">
+              <div><span>Supported routes</span></div>
+              <pre><code>/github/{owner}/{repository}/{workflow}.svg
+/github/{owner}/{repository}/{workflow}/{option}/{value}...svg
+/github/{owner}/{repository}/{workflow}/job/{job-name}.svg
+/github/{owner}/{repository}/{workflow}/job/{job-name}/{option}/{value}...svg</code></pre>
+            </div>
+
+            <p>
+              The optional <code>job/{job-name}</code> selector must immediately follow the workflow.
+              Add appearance options after the workflow or job selector as path pairs.
+            </p>
+
+            <div class="docs-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Option</th>
+                    <th>Purpose</th>
+                    <th>Example</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td><code>size</code></td><td>Light height in pixels</td><td><code>size/40</code></td></tr>
+                  <tr><td><code>width</code></td><td>Fixed width in pixels</td><td><code>width/160</code></td></tr>
+                  <tr><td><code>font</code></td><td>Sans, mono, or serif font stack</td><td><code>font/mono</code></td></tr>
+                  <tr><td><code>font-size</code></td><td>Text size in pixels</td><td><code>font-size/16</code></td></tr>
+                  <tr><td><code>radius</code></td><td>Corner radius in pixels</td><td><code>radius/6</code></td></tr>
+                  <tr><td><code>text</code></td><td>Fixed text; may include <code>{status}</code></td><td><code>text/Build%3A%20%7Bstatus%7D</code></td></tr>
+                  <tr><td><code>success-color</code></td><td>Successful state colour</td><td><code>success-color/1a7f37</code></td></tr>
+                  <tr><td><code>failure-color</code></td><td>Failed state colour</td><td><code>failure-color/cf222e</code></td></tr>
+                  <tr><td><code>running-color</code></td><td>In-progress state colour</td><td><code>running-color/bf8700</code></td></tr>
+                  <tr><td><code>unknown-color</code></td><td>Unknown state colour</td><td><code>unknown-color/6e7781</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="docs-callout">
+              <strong>Prefer the builder for customized lights.</strong>
+              It handles option order and URL encoding and lets you preview all four states before
+              copying the live URL.
+            </div>
+          </section>
+
+          <section id="troubleshooting">
+            <p class="docs-kicker">03 / TROUBLESHOOTING</p>
+            <h2>Common problems</h2>
+
+            <details open>
+              <summary>The light is gray or unknown</summary>
+              <div>
+                <ol>
+                  <li>Confirm that the App is installed for the repository.</li>
+                  <li>Run the workflow on the default branch after installation.</li>
+                  <li>Use the workflow filename, including <code>.yml</code> or <code>.yaml</code>.</li>
+                  <li>For a job URL, use the exact, case-sensitive display name.</li>
+                </ol>
+              </div>
+            </details>
+
+            <details>
+              <summary>The light shows an older result</summary>
+              <div>
+                <p>
+                  Browsers and image proxies can cache an SVG briefly. Confirm that the latest run
+                  was on the default branch, then allow the cache to refresh.
+                </p>
+              </div>
+            </details>
+
+            <details>
+              <summary>The URL returns an error image</summary>
+              <div>
+                <p>
+                  Use the <a href="../#customize">interactive builder</a> to validate the path and
+                  options. If the problem remains, open an issue in the
+                  <a href="https://github.com/KingBain/status-lights/issues">Status Lights repository</a>.
+                </p>
+              </div>
+            </details>
+          </section>
+
+          <section id="self-hosting">
+            <p class="docs-kicker">04 / SELF-HOSTING</p>
+            <h2>Operate your own instance</h2>
+            <p class="docs-lede">
+              The backend is a dependency-free PHP 8.3+ service. It accepts signed GitHub App
+              webhooks, stores the latest default-branch state locally, and serves the SVG routes
+              without calling GitHub on each image request.
+            </p>
+
+            <h3>Register the App</h3>
+            <p>Under <strong>Settings → Developer settings → GitHub Apps</strong>, configure:</p>
+            <ul>
+              <li>Your website as the Homepage URL.</li>
+              <li><code>https://your-host.example/webhooks/github</code> as the Webhook URL.</li>
+              <li>A secret containing at least 32 random bytes (64 hexadecimal characters).</li>
+              <li><strong>Actions: read-only</strong>; Metadata read-only is automatic.</li>
+              <li><code>Workflow run</code> and <code>Workflow job</code> repository events.</li>
+              <li>Installation lifecycle events so selected repositories can be tracked.</li>
+            </ul>
+            <p>Do not grant write permissions. A callback URL is not needed.</p>
+
+            <h3>Configure the host</h3>
+            <div class="docs-code">
+              <div><span>Required environment variable</span></div>
+              <pre><code>STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET=&lt;same secret configured in GitHub&gt;</code></pre>
+            </div>
+
+            <div class="docs-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Environment variable</th>
+                    <th>Default</th>
+                    <th>Purpose</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td><code>STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET</code></td><td>Unset</td><td>Verify GitHub webhook signatures</td></tr>
+                  <tr><td><code>STATUS_LIGHTS_APP_STORE_DIR</code></td><td><code>app-data</code></td><td>Writable persistent state directory</td></tr>
+                  <tr><td><code>STATUS_LIGHTS_MAX_WEBHOOK_BYTES</code></td><td><code>1048576</code></td><td>Maximum accepted webhook body size</td></tr>
+                  <tr><td><code>STATUS_LIGHTS_RUN_RETENTION_DAYS</code></td><td><code>7</code></td><td>Workflow run-link retention</td></tr>
+                  <tr><td><code>STATUS_LIGHTS_DELIVERY_RETENTION_DAYS</code></td><td><code>7</code></td><td>Replay-record retention</td></tr>
+                  <tr><td><code>STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS</code></td><td><code>86400</code></td><td>Minimum time between pruning scans</td></tr>
+                  <tr><td><code>STATUS_LIGHTS_HTTP_CACHE_TTL</code></td><td><code>60</code></td><td>Browser and image-proxy cache duration</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p>
+              Route <code>/health</code>, <code>/webhooks/github</code>, and
+              <code>/github/...</code> to <code>generator/app.php</code>. Keep the writable state
+              directory and all source files outside direct HTTP access, use HTTPS, and rate-limit
+              public SVG routes before PHP.
+            </p>
+
+            <h3>Verify and maintain</h3>
+            <div class="docs-code">
+              <div><span>Health check</span></div>
+              <pre><code>https://your-host.example/health</code></pre>
+            </div>
+            <p>
+              Confirm that <code>app_store_writable</code> and
+              <code>webhook_secret_configured</code> are both <code>true</code>. Schedule the
+              pruning command at least daily:
+            </p>
+            <div class="docs-code">
+              <div><span>Prune transient records</span></div>
+              <pre><code>STATUS_LIGHTS_APP_STORE_DIR=/path/to/app-data \
+  php scripts/prune-app-runs.php</code></pre>
+            </div>
+            <p>
+              The complete runtime and deployment reference remains beside the backend source in
+              <a href="https://github.com/KingBain/status-lights/blob/main/generator/README.md"><code>generator/README.md</code></a>.
+            </p>
+          </section>
+
+          <section id="security">
+            <p class="docs-kicker">05 / SECURITY</p>
+            <h2>Security model</h2>
+            <ul>
+              <li>Webhook bodies are bounded before parsing and verified with HMAC-SHA256.</li>
+              <li>Duplicate GitHub delivery IDs are claimed atomically and ignored safely.</li>
+              <li>Public route identifiers and runtime record keys are strictly allow-listed.</li>
+              <li>Runtime state lives outside direct HTTP access.</li>
+              <li>The App uses read-only Actions and Metadata permissions—never repository write access.</li>
+              <li>Public SVG traffic should be rate-limited at the web server, edge, or WAF.</li>
+            </ul>
+          </section>
+
+          <nav class="docs-next" aria-label="Documentation actions">
+            <div>
+              <span>Ready to use it?</span>
+              <strong>Build a live status light.</strong>
+            </div>
+            <a class="button button-primary" href="../#customize">Open the builder</a>
+          </nav>
+        </article>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <a class="brand" href="../" aria-label="Status Lights home">
+          <span class="brand-mark" aria-hidden="true">
+            <span class="light success"></span>
+            <span class="light failure"></span>
+            <span class="light running"></span>
+            <span class="light unknown"></span>
+          </span>
+          <span>Status Lights</span>
+        </a>
+        <p>Open source and built in Canada.</p>
+        <a href="https://github.com/KingBain/status-lights/blob/main/LICENSE">MIT License</a>
+      </div>
+    </footer>
+  </body>
+</html>
