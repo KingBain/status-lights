@@ -5,6 +5,21 @@ into compact, customizable SVG indicators.
 
 This repository contains the public website and the PHP generator service.
 
+## Project status
+
+This table uses Status Lights itself to show the latest `main` result for each repository workflow
+and its individual jobs.
+
+| Scope | Status |
+| --- | :---: |
+| GitHub Pages workflow | [![GitHub Pages workflow status](https://g.statuslights.dev/github/KingBain/status-lights/pages.yml/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/pages.yml) |
+| ↳ Validate site job | [![Validate site job status](https://g.statuslights.dev/github/KingBain/status-lights/pages.yml/job/Validate%20site/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/pages.yml) |
+| ↳ Deploy site job | [![Deploy site job status](https://g.statuslights.dev/github/KingBain/status-lights/pages.yml/job/Deploy%20site/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/pages.yml) |
+| PHP generator workflow | [![PHP generator workflow status](https://g.statuslights.dev/github/KingBain/status-lights/generator.yml/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/generator.yml) |
+| ↳ Test with PHP 8.3 job | [![PHP 8.3 job status](https://g.statuslights.dev/github/KingBain/status-lights/generator.yml/job/Test%20with%20PHP%208.3/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/generator.yml) |
+| ↳ Test with PHP 8.4 job | [![PHP 8.4 job status](https://g.statuslights.dev/github/KingBain/status-lights/generator.yml/job/Test%20with%20PHP%208.4/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/generator.yml) |
+| ↳ Test with PHP 8.5 job | [![PHP 8.5 job status](https://g.statuslights.dev/github/KingBain/status-lights/generator.yml/job/Test%20with%20PHP%208.5/size/30/radius/5.svg)](https://github.com/KingBain/status-lights/actions/workflows/generator.yml) |
+
 ## Website
 
 The public documentation site is [statuslights.dev](https://statuslights.dev). The static site lives
@@ -15,10 +30,11 @@ The generator source lives in [`generator/`](generator/) and runs separately at
 
 ```text
 https://g.statuslights.dev/github/{owner}/{repository}/{workflow}.svg
+https://g.statuslights.dev/github/{owner}/{repository}/{workflow}/job/{job-name}.svg
 ```
 
-The generator resolves the latest public workflow run on the repository's default branch, caches
-the state, and renders the result as an SVG.
+The generator resolves the latest public workflow run on the repository's default branch. It can
+render the whole workflow state or select an individual job by its display name.
 
 To view the documentation site locally:
 

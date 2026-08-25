@@ -12,6 +12,7 @@
     owner: document.querySelector("#owner"),
     repository: document.querySelector("#repository"),
     workflow: document.querySelector("#workflow"),
+    job: document.querySelector("#job"),
     text: document.querySelector("#label-text"),
     font: document.querySelector("#font"),
     size: document.querySelector("#size"),
@@ -51,6 +52,11 @@
     const cleaned = value.trim().replace(/[^A-Za-z0-9._-]/g, "");
     return cleaned || fallback;
   };
+
+  const cleanJobName = (value) => value
+    .trim()
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .slice(0, 100);
 
   const hex = (value) => value.replace("#", "").toLowerCase();
 
@@ -102,7 +108,9 @@
     elements.previewText.setAttribute("font-size", String(fontSize));
     elements.previewText.setAttribute("font-family", fonts[elements.font.value]);
     elements.previewText.textContent = label;
-    elements.previewTitle.textContent = `${label || "Workflow"} status: ${selectedState}`;
+    const job = cleanJobName(elements.job.value);
+    const previewTarget = label || job || "Workflow";
+    elements.previewTitle.textContent = `${previewTarget} status: ${selectedState}`;
 
     const owner = cleanSourceSegment(elements.owner.value, "owner");
     const repository = cleanSourceSegment(elements.repository.value, "repository");
@@ -113,6 +121,13 @@
       encode(owner),
       encode(repository),
       encode(workflow),
+    ];
+
+    if (job) {
+      path.push("job", encode(job));
+    }
+
+    path.push(
       "size",
       height,
       "font",
@@ -129,7 +144,7 @@
       hex(elements.runningColor.value),
       "unknown-color",
       hex(elements.unknownColor.value),
-    ];
+    );
 
     if (template) {
       path.push("text", `${encode(template)}.svg`);

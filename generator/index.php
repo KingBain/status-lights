@@ -89,6 +89,7 @@ function status_lights_environment_integer(
  *   owner: string,
  *   repository: string,
  *   workflow: string,
+ *   job: string|null,
  *   height: int,
  *   width: int|null,
  *   font: string,
@@ -117,7 +118,8 @@ function status_lights_parse_request(string $requestUri): array
 
     if (count($rawSegments) < 4 || $rawSegments[0] !== 'github') {
         throw new StatusLightsRouteException(
-            'Expected /github/{owner}/{repository}/{workflow}.svg.',
+            'Expected /github/{owner}/{repository}/{workflow}.svg or '
+                . '/github/{owner}/{repository}/{workflow}/job/{job}.svg.',
             404,
         );
     }
@@ -144,6 +146,16 @@ function status_lights_parse_request(string $requestUri): array
     status_lights_assert_matches($workflow, '/^[A-Za-z0-9._-]{1,100}$/', 'workflow');
 
     $optionSegments = array_slice($segments, 4);
+    $job = null;
+
+    if (($optionSegments[0] ?? null) === 'job') {
+        if (!isset($optionSegments[1]) || $optionSegments[1] === '') {
+            throw new StatusLightsRouteException('A job selector must include a job name.');
+        }
+
+        $job = status_lights_job_option($optionSegments[1]);
+        $optionSegments = array_slice($optionSegments, 2);
+    }
 
     if (count($optionSegments) % 2 !== 0) {
         throw new StatusLightsRouteException('Every option name must be followed by a value.');
@@ -211,6 +223,7 @@ function status_lights_parse_request(string $requestUri): array
         'owner' => $owner,
         'repository' => $repository,
         'workflow' => $workflow,
+        'job' => $job,
         'height' => $height,
         'width' => $width,
         'font' => $font,
@@ -219,6 +232,28 @@ function status_lights_parse_request(string $requestUri): array
         'text' => $text,
         'colors' => $colors,
     ];
+}
+
+function status_lights_job_option(string $value): string
+{
+    // Match text handling so encoded slashes survive Apache path processing.
+    $value = rawurldecode($value);
+
+    if (preg_match('//u', $value) !== 1) {
+        throw new StatusLightsRouteException('Job name must be valid UTF-8.');
+    }
+
+    if (preg_match('/[\\x00-\\x1F\\x7F]/u', $value) === 1) {
+        throw new StatusLightsRouteException('Job name may not contain control characters.');
+    }
+
+    $characters = preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY);
+
+    if ($characters === false || count($characters) > 100) {
+        throw new StatusLightsRouteException('Job name may not exceed 100 characters.');
+    }
+
+    return $value;
 }
 
 /** @param array<string, string> $options */
@@ -317,6 +352,7 @@ function status_lights_fetch_state(
     string $repository,
     string $workflow,
     array $config,
+    ?string $job = null,
 ): string {
     $payload = status_lights_fetch_runs($owner, $repository, $workflow, $config);
     $run = $payload['workflow_runs'][0] ?? null;
@@ -339,7 +375,41 @@ function status_lights_fetch_state(
         $run = $payload['workflow_runs'][0] ?? null;
     }
 
-    return is_array($run) ? status_lights_map_run_state($run) : STATUS_LIGHTS_UNKNOWN;
+    if (!is_array($run)) {
+        return STATUS_LIGHTS_UNKNOWN;
+    }
+
+    if ($job === null) {
+        return status_lights_map_run_state($run);
+    }
+
+    $runId = $run['id'] ?? null;
+
+    if (!is_int($runId)) {
+        return STATUS_LIGHTS_UNKNOWN;
+    }
+
+    $jobs = status_lights_fetch_jobs($owner, $repository, $runId, $config);
+
+    return status_lights_find_job_state($jobs, $job);
+}
+
+/** @param array<string, mixed> $payload */
+function status_lights_find_job_state(array $payload, string $jobName): string
+{
+    $jobs = $payload['jobs'] ?? null;
+
+    if (!is_array($jobs)) {
+        return STATUS_LIGHTS_UNKNOWN;
+    }
+
+    foreach ($jobs as $job) {
+        if (is_array($job) && ($job['name'] ?? null) === $jobName) {
+            return status_lights_map_run_state($job);
+        }
+    }
+
+    return STATUS_LIGHTS_UNKNOWN;
 }
 
 /**
@@ -366,6 +436,54 @@ function status_lights_fetch_runs(
         rawurlencode($workflow),
         http_build_query($query, encoding_type: PHP_QUERY_RFC3986),
     );
+    $payload = status_lights_fetch_github_json($url, $config);
+
+    if (
+        !is_array($payload)
+        || !isset($payload['workflow_runs'])
+        || !is_array($payload['workflow_runs'])
+    ) {
+        throw new RuntimeException('GitHub returned an unexpected response.');
+    }
+
+    return $payload;
+}
+
+/**
+ * @param array<string, int|string|null> $config
+ * @return array<string, mixed>
+ */
+function status_lights_fetch_jobs(
+    string $owner,
+    string $repository,
+    int $runId,
+    array $config,
+): array {
+    $url = sprintf(
+        'https://api.github.com/repos/%s/%s/actions/runs/%d/jobs?%s',
+        rawurlencode($owner),
+        rawurlencode($repository),
+        $runId,
+        http_build_query(
+            ['filter' => 'latest', 'per_page' => '100'],
+            encoding_type: PHP_QUERY_RFC3986,
+        ),
+    );
+    $payload = status_lights_fetch_github_json($url, $config);
+
+    if (!isset($payload['jobs']) || !is_array($payload['jobs'])) {
+        throw new RuntimeException('GitHub returned an unexpected jobs response.');
+    }
+
+    return $payload;
+}
+
+/**
+ * @param array<string, int|string|null> $config
+ * @return array<string, mixed>
+ */
+function status_lights_fetch_github_json(string $url, array $config): array
+{
     $headers = [
         'Accept: application/vnd.github+json',
         'User-Agent: statuslights.dev',
@@ -410,11 +528,7 @@ function status_lights_fetch_runs(
         throw new RuntimeException('GitHub returned invalid JSON.', previous: $exception);
     }
 
-    if (
-        !is_array($payload)
-        || !isset($payload['workflow_runs'])
-        || !is_array($payload['workflow_runs'])
-    ) {
+    if (!is_array($payload)) {
         throw new RuntimeException('GitHub returned an unexpected response.');
     }
 
@@ -424,7 +538,7 @@ function status_lights_fetch_runs(
 /**
  * @param array<string, mixed> $request
  * @param array<string, int|string|null> $config
- * @param callable(string, string, string): string|null $provider
+ * @param callable(string, string, string, string|null): string|null $provider
  * @return array{state: string, cache_status: string, fetched_at: int}
  */
 function status_lights_resolve_state(
@@ -434,11 +548,18 @@ function status_lights_resolve_state(
     ?int $now = null,
 ): array {
     $now ??= time();
-    $key = implode('/', [
+    $keyParts = [
         strtolower((string) $request['owner']),
         strtolower((string) $request['repository']),
         (string) $request['workflow'],
-    ]);
+    ];
+
+    if (is_string($request['job'])) {
+        $keyParts[] = 'job';
+        $keyParts[] = $request['job'];
+    }
+
+    $key = implode('/', $keyParts);
     $cacheDirectory = (string) $config['cache_directory'];
     $cached = status_lights_read_cache($cacheDirectory, $key);
 
@@ -450,14 +571,19 @@ function status_lights_resolve_state(
         ];
     }
 
-    $provider ??= static fn (string $owner, string $repository, string $workflow): string
-        => status_lights_fetch_state($owner, $repository, $workflow, $config);
+    $provider ??= static fn (
+        string $owner,
+        string $repository,
+        string $workflow,
+        ?string $job,
+    ): string => status_lights_fetch_state($owner, $repository, $workflow, $config, $job);
 
     try {
         $state = $provider(
             (string) $request['owner'],
             (string) $request['repository'],
             (string) $request['workflow'],
+            is_string($request['job']) ? $request['job'] : null,
         );
 
         if (!in_array($state, STATUS_LIGHTS_STATES, true)) {
@@ -589,11 +715,14 @@ function status_lights_render_svg(array $request, array $result): string
     $color = (string) $colors[$state];
     $background = '#' . $color;
     $foreground = status_lights_contrast_color($color);
+    $target = is_string($request['job'])
+        ? sprintf('%s job %s', $request['workflow'], $request['job'])
+        : (string) $request['workflow'];
     $title = sprintf(
         '%s/%s %s status: %s',
         $request['owner'],
         $request['repository'],
-        $request['workflow'],
+        $target,
         $statusLabel,
     );
     $svg = [

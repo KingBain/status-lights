@@ -2,7 +2,8 @@
 
 This folder contains the dependency-free PHP service deployed at
 [`g.statuslights.dev`](https://g.statuslights.dev). It resolves the latest run on the repository's
-default branch for a public GitHub Actions workflow and returns a compact SVG status light.
+default branch for a public GitHub Actions workflow and returns a compact SVG status light for the
+whole workflow or one of its jobs.
 
 The complete runtime is in [`index.php`](index.php). There is no Composer install or application
 build step. The accompanying [`.htaccess`](.htaccess) sends friendly status-light URLs to that PHP
@@ -27,6 +28,7 @@ Then try:
 
 ```text
 http://127.0.0.1:8080/github/KingBain/status-lights/pages.yml.svg
+http://127.0.0.1:8080/github/KingBain/status-lights/pages.yml/job/Validate%20site.svg
 http://127.0.0.1:8080/github/KingBain/status-lights/pages.yml/size/40/text/Build%3A%20%7Bstatus%7D.svg
 http://127.0.0.1:8080/health
 ```
@@ -113,7 +115,13 @@ executable can be overridden with `STATUS_LIGHTS_REPOSITORY_PATH`, `STATUS_LIGHT
 ```text
 /github/{owner}/{repository}/{workflow}.svg
 /github/{owner}/{repository}/{workflow}/{option}/{value}...svg
+/github/{owner}/{repository}/{workflow}/job/{job-name}.svg
+/github/{owner}/{repository}/{workflow}/job/{job-name}/{option}/{value}...svg
 ```
 
 Supported options are `size`, `width`, `font`, `font-size`, `radius`, `text`, `success-color`,
 `failure-color`, `running-color`, and `unknown-color`. The `text` value may contain `{status}`.
+
+The optional `job/{job-name}` selector must appear immediately after the workflow. Use the job's
+display name from the Actions UI or its workflow `name:` value, not the key under `jobs:`. Encode
+spaces and other path characters in the URL; matching is case-sensitive.
