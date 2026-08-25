@@ -224,6 +224,13 @@
               Add appearance options after the workflow or job selector as path pairs.
             </p>
 
+            <div class="docs-callout">
+              <strong>Repository names beginning with a period.</strong>
+              Prefix the repository segment with <code>@</code> so front-end web servers do not
+              treat it as a hidden path. For example, use <code>@.github</code> for a repository
+              named <code>.github</code>. The interactive builder applies this escape automatically.
+            </div>
+
             <div class="docs-table-wrap">
               <table>
                 <thead>

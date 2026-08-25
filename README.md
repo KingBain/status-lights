@@ -73,6 +73,9 @@ https://g.statuslights.dev/github/{owner}/{repository}/{workflow}/job/{job-name}
 
 Installing the GitHub App does not change existing Status Lights URLs.
 
+Repository names beginning with a period use an `@` escape in the public URL. For example,
+`.github` is written as `@.github`; the website builder handles this automatically.
+
 To view the documentation site locally:
 
 ```bash

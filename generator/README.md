@@ -183,6 +183,10 @@ The optional `job/{job-name}` selector must appear immediately after the workflo
 display name from the Actions UI or its workflow `name:` value, not the key under `jobs:`. Encode
 spaces and other path characters in the URL; matching is case-sensitive.
 
+For repository names beginning with a period, prefix the repository path segment with `@` so the
+front-end web server does not treat it as a hidden path. For example, use `@.github` for the
+repository named `.github`. The website builder adds this escape automatically.
+
 GitHub owner, repository, and workflow identifiers must not be the canonical path segments `.` or
 `..`. Encoded forms of those segments are rejected after URL decoding.
 
