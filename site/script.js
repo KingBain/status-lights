@@ -124,12 +124,13 @@
 
     const owner = cleanSourceSegment(elements.owner.value, "owner");
     const repository = cleanSourceSegment(elements.repository.value, "repository");
+    const repositoryPathSegment = repository.startsWith(".") ? `@${repository}` : repository;
     const workflow = cleanSourceSegment(elements.workflow.value, "workflow.yml");
     const path = [
       "",
       "github",
       encode(owner),
-      encode(repository),
+      encode(repositoryPathSegment),
       encode(workflow),
     ];
 

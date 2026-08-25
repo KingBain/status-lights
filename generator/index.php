@@ -152,7 +152,7 @@ function status_lights_parse_request(string $requestUri): LightRequest
     $rawSegments[$lastIndex] = substr($lastSegment, 0, -4);
     $segments = array_map('rawurldecode', $rawSegments);
     $owner = $segments[1];
-    $repository = $segments[2];
+    $repository = status_lights_repository_segment($segments[2]);
     $workflow = $segments[3];
 
     status_lights_assert_not_dot_segment($owner, 'GitHub owner');
@@ -254,6 +254,12 @@ function status_lights_parse_request(string $requestUri): LightRequest
         text: $text,
         colors: $colors,
     );
+}
+
+function status_lights_repository_segment(string $value): string
+{
+    // A leading @ keeps dot-prefixed repository names away from front-end hidden-path rules.
+    return str_starts_with($value, '@.') ? substr($value, 1) : $value;
 }
 
 function status_lights_job_option(string $value): string

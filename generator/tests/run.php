@@ -94,6 +94,16 @@ test('parses the canonical route with defaults', static function (): void {
     expectSame('', $request->text);
 });
 
+test('parses an escaped dot-prefixed repository route', static function (): void {
+    $request = status_lights_parse_request(
+        '/github/ssc-sp/@.github/manage-org-members.yml.svg',
+    );
+
+    expectSame('ssc-sp', $request->owner);
+    expectSame('.github', $request->repository);
+    expectSame('manage-org-members.yml', $request->workflow);
+});
+
 test('parses a job route and appearance options', static function (): void {
     $request = status_lights_parse_request(
         '/github/KingBain/status-lights/pages.yml/job/Validate%20site/size/32'
@@ -149,6 +159,9 @@ test('rejects canonical dot segments in route identifiers', static function (): 
     expectRouteFailure('/github/%2e%2e/repository/workflow.yml.svg');
     expectRouteFailure('/github/owner/%2e/workflow.yml.svg');
     expectRouteFailure('/github/owner/%2e%2e/workflow.yml.svg');
+    expectRouteFailure('/github/owner/@./workflow.yml.svg');
+    expectRouteFailure('/github/owner/@../workflow.yml.svg');
+    expectRouteFailure('/github/owner/@repository/workflow.yml.svg');
     expectRouteFailure('/github/owner/repository/%2e.svg');
     expectRouteFailure('/github/owner/repository/%2e%2e.svg');
     expectRouteFailure('/github/owner/repository/%252e%252e.svg');
