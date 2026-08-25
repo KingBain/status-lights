@@ -87,11 +87,11 @@ python3 scripts/validate-site.py
 node --check site/script.js
 find generator scripts -name '*.php' -print0 | xargs -0 -n1 php -l
 php generator/tests/run.php
-bash -n scripts/cpanel-pull-deploy.sh
 ```
 
-The PHP backend remains dependency-free. GitHub App runtime setup, configuration, URL options, and
-the cPanel pull deployment are documented in [`generator/README.md`](generator/README.md).
+The PHP backend remains dependency-free. GitHub App runtime setup, environment-variable
+configuration, maintenance, and URL options are documented in
+[`generator/README.md`](generator/README.md).
 
 ## Project direction
 
