@@ -75,25 +75,33 @@ require changing the public SVG URL format.
 
 ## Maintain the file store
 
-Workflow run records only connect `workflow_job` deliveries to their parent workflow. They are
-temporary and should not accumulate indefinitely. Run the included pruning command at least daily;
-it deletes only run records older than seven days by default:
+Workflow run records connect `workflow_job` deliveries to their parent workflow. Delivery records
+prevent a repeated `X-GitHub-Delivery` ID from being processed twice. Both are temporary and should
+not accumulate indefinitely. Run the included pruning command at least daily; it deletes expired run
+and delivery records after seven days by default:
 
 ```bash
 STATUS_LIGHTS_APP_STORE_DIR=/path/to/app-data \
   php scripts/prune-app-runs.php
 ```
 
-Set `STATUS_LIGHTS_RUN_RETENTION_DAYS` from 1 through 365 to change the retention period. Schedule
-the command with your hosting platform's task runner or another cron-compatible scheduler. An
-app-data lock prevents overlapping scans, and `STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS` controls
-the minimum interval between scans from 300 through 604800 seconds.
+Set `STATUS_LIGHTS_RUN_RETENTION_DAYS` or `STATUS_LIGHTS_DELIVERY_RETENTION_DAYS` from 1 through 365
+to change either retention period. Schedule the command with your hosting platform's task runner or
+another cron-compatible scheduler. An app-data lock prevents overlapping scans, and
+`STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS` controls the minimum interval between scans from 300
+through 604800 seconds.
 
 ## Security model
 
 Status Lights bounds the request body before parsing it, then validates every accepted GitHub
 webhook with `X-Hub-Signature-256` using HMAC-SHA256 and the configured webhook secret. Oversized
-payloads are rejected with HTTP 413 and invalid signatures with HTTP 401.
+payloads are rejected with HTTP 413 and invalid signatures with HTTP 401. Valid delivery GUIDs are
+claimed with an exclusive filesystem create before processing, so concurrent or replayed deliveries
+with the same `X-GitHub-Delivery` value are safely ignored.
+
+Public route identifiers are allow-listed after URL decoding, and canonical `.` or `..` owner,
+repository, and workflow path segments are rejected. Runtime record kinds are fixed in code and
+record keys are validated before every filesystem read, write, create, delete, or prune operation.
 
 The webhook-first implementation does not require a personal access token and does not need
 repository write access. Runtime data contains repository, workflow, job, run, installation, and

@@ -144,6 +144,16 @@ test('rejects unsafe or unsupported route options', static function (): void {
     expectRouteFailure('/github/owner/repository/workflow.yml/job/%00.svg');
 });
 
+test('rejects canonical dot segments in route identifiers', static function (): void {
+    expectRouteFailure('/github/%2e/repository/workflow.yml.svg');
+    expectRouteFailure('/github/%2e%2e/repository/workflow.yml.svg');
+    expectRouteFailure('/github/owner/%2e/workflow.yml.svg');
+    expectRouteFailure('/github/owner/%2e%2e/workflow.yml.svg');
+    expectRouteFailure('/github/owner/repository/%2e.svg');
+    expectRouteFailure('/github/owner/repository/%2e%2e.svg');
+    expectRouteFailure('/github/owner/repository/%252e%252e.svg');
+});
+
 test('finds an individual GitHub Actions job by display name', static function (): void {
     $payload = [
         'jobs' => [
@@ -223,24 +233,112 @@ test('rejects oversized webhook bodies without reading them into memory', static
     }
 });
 
-test('prunes only expired workflow run records', static function (): void {
+test('validates record kinds and keys at the storage boundary', static function (): void {
     $directory = sys_get_temp_dir() . '/status-lights-app-tests-' . bin2hex(random_bytes(6));
     putenv('STATUS_LIGHTS_APP_STORE_DIR=' . $directory);
+    $repositoryKey = str_repeat('a', 64);
 
     try {
-        status_lights_app_write('runs', 'expired', ['updated_at' => 100]);
-        status_lights_app_write('runs', 'current', ['updated_at' => 200]);
-        status_lights_app_write('statuses', 'expired', ['updated_at' => 100]);
-        touch($directory . '/runs/expired.json', 100);
-        touch($directory . '/runs/current.json', 200);
+        status_lights_app_write(
+            StatusLightsAppStoreKind::Repositories,
+            $repositoryKey,
+            ['installed' => true],
+        );
+
+        expectSame(
+            ['installed' => true],
+            status_lights_app_read(StatusLightsAppStoreKind::Repositories, $repositoryKey),
+        );
+        expectThrows(
+            InvalidArgumentException::class,
+            static fn (): string => status_lights_app_record_path(
+                StatusLightsAppStoreKind::Repositories,
+                '../escape',
+            ),
+        );
+        expectThrows(
+            InvalidArgumentException::class,
+            static fn (): string => status_lights_app_record_path(
+                StatusLightsAppStoreKind::Runs,
+                '1/../../2',
+            ),
+        );
+        expectThrows(
+            TypeError::class,
+            static fn (): ?array => status_lights_app_read('runs', '1'),
+        );
+    } finally {
+        putenv('STATUS_LIGHTS_APP_STORE_DIR');
+        removeTestDirectory($directory);
+    }
+});
+
+test('claims each GitHub webhook delivery exactly once', static function (): void {
+    $directory = sys_get_temp_dir() . '/status-lights-app-tests-' . bin2hex(random_bytes(6));
+    putenv('STATUS_LIGHTS_APP_STORE_DIR=' . $directory);
+    $deliveryId = '72d3162e-cc78-11e3-81ab-4c9367dc0958';
+
+    try {
+        expectSame($deliveryId, status_lights_app_normalize_delivery_id(strtoupper($deliveryId)));
+        expect(status_lights_app_claim_delivery($deliveryId));
+        expect(!status_lights_app_claim_delivery(strtoupper($deliveryId)));
+
+        status_lights_app_release_delivery($deliveryId);
+        expect(status_lights_app_claim_delivery($deliveryId));
+        expectSame(null, status_lights_app_normalize_delivery_id('../not-a-guid'));
+        expectThrows(
+            InvalidArgumentException::class,
+            static fn (): bool => status_lights_app_claim_delivery('../not-a-guid'),
+        );
+    } finally {
+        putenv('STATUS_LIGHTS_APP_STORE_DIR');
+        removeTestDirectory($directory);
+    }
+});
+
+test('prunes only expired transient records', static function (): void {
+    $directory = sys_get_temp_dir() . '/status-lights-app-tests-' . bin2hex(random_bytes(6));
+    putenv('STATUS_LIGHTS_APP_STORE_DIR=' . $directory);
+    $statusKey = str_repeat('b', 64);
+    $expiredDeliveryKey = status_lights_app_delivery_key(
+        '72d3162e-cc78-11e3-81ab-4c9367dc0958',
+    );
+    $currentDeliveryKey = status_lights_app_delivery_key(
+        '72d3162e-cc78-11e3-81ab-4c9367dc0959',
+    );
+
+    try {
+        status_lights_app_write(StatusLightsAppStoreKind::Runs, '1001', ['updated_at' => 100]);
+        status_lights_app_write(StatusLightsAppStoreKind::Runs, '1002', ['updated_at' => 200]);
+        status_lights_app_write(StatusLightsAppStoreKind::Statuses, $statusKey, ['updated_at' => 100]);
+        status_lights_app_write(
+            StatusLightsAppStoreKind::Deliveries,
+            $expiredDeliveryKey,
+            ['received_at' => 100],
+        );
+        status_lights_app_write(
+            StatusLightsAppStoreKind::Deliveries,
+            $currentDeliveryKey,
+            ['received_at' => 200],
+        );
+        touch($directory . '/runs/1001.json', 100);
+        touch($directory . '/runs/1002.json', 200);
+        touch($directory . '/deliveries/' . $expiredDeliveryKey . '.json', 100);
+        touch($directory . '/deliveries/' . $currentDeliveryKey . '.json', 200);
         file_put_contents($directory . '/runs/keep.txt', 'not a run record');
+        file_put_contents($directory . '/runs/not-a-valid-key.json', 'not a run record');
         touch($directory . '/runs/keep.txt', 100);
+        touch($directory . '/runs/not-a-valid-key.json', 100);
 
         expectSame(1, status_lights_app_prune_runs_older_than(150));
-        expect(!is_file($directory . '/runs/expired.json'));
-        expect(is_file($directory . '/runs/current.json'));
+        expectSame(1, status_lights_app_prune_deliveries_older_than(150));
+        expect(!is_file($directory . '/runs/1001.json'));
+        expect(is_file($directory . '/runs/1002.json'));
+        expect(!is_file($directory . '/deliveries/' . $expiredDeliveryKey . '.json'));
+        expect(is_file($directory . '/deliveries/' . $currentDeliveryKey . '.json'));
         expect(is_file($directory . '/runs/keep.txt'));
-        expect(is_file($directory . '/statuses/expired.json'));
+        expect(is_file($directory . '/runs/not-a-valid-key.json'));
+        expect(is_file($directory . '/statuses/' . $statusKey . '.json'));
     } finally {
         putenv('STATUS_LIGHTS_APP_STORE_DIR');
         removeTestDirectory($directory);

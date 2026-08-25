@@ -155,6 +155,9 @@ function status_lights_parse_request(string $requestUri): LightRequest
     $repository = $segments[2];
     $workflow = $segments[3];
 
+    status_lights_assert_not_dot_segment($owner, 'GitHub owner');
+    status_lights_assert_not_dot_segment($repository, 'repository');
+    status_lights_assert_not_dot_segment($workflow, 'workflow');
     status_lights_assert_matches(
         $owner,
         '/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/',
@@ -340,6 +343,13 @@ function status_lights_color_option(string $value, string $name): string
 function status_lights_assert_matches(string $value, string $pattern, string $name): void
 {
     if (preg_match($pattern, $value) !== 1) {
+        throw new StatusLightsRouteException(sprintf('Invalid %s.', $name));
+    }
+}
+
+function status_lights_assert_not_dot_segment(string $value, string $name): void
+{
+    if ($value === '.' || $value === '..') {
         throw new StatusLightsRouteException(sprintf('Invalid %s.', $name));
     }
 }

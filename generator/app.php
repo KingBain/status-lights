@@ -12,6 +12,22 @@ final class StatusLightsPayloadTooLargeException extends RuntimeException
 {
 }
 
+enum StatusLightsAppStoreKind: string
+{
+    case Deliveries = 'deliveries';
+    case Repositories = 'repositories';
+    case Runs = 'runs';
+    case Statuses = 'statuses';
+
+    public function keyPattern(): string
+    {
+        return match ($this) {
+            self::Runs => '/\A[1-9][0-9]*\z/D',
+            default => '/\A[a-f0-9]{64}\z/D',
+        };
+    }
+}
+
 function status_lights_app_store_dir(): string
 {
     $configured = status_lights_environment('STATUS_LIGHTS_APP_STORE_DIR');
@@ -38,14 +54,39 @@ function status_lights_app_key(string ...$parts): string
     return hash('sha256', implode('/', $parts));
 }
 
-function status_lights_app_write(string $kind, string $key, array $value): void
+function status_lights_app_store_kind_directory(StatusLightsAppStoreKind $kind): string
 {
-    $directory = status_lights_app_store_dir() . '/' . $kind;
+    return rtrim(status_lights_app_store_dir(), DIRECTORY_SEPARATOR)
+        . DIRECTORY_SEPARATOR
+        . $kind->value;
+}
+
+function status_lights_app_record_path(StatusLightsAppStoreKind $kind, string $key): string
+{
+    if (preg_match($kind->keyPattern(), $key) !== 1) {
+        throw new InvalidArgumentException('Invalid app data record key.');
+    }
+
+    return status_lights_app_store_kind_directory($kind)
+        . DIRECTORY_SEPARATOR
+        . $key
+        . '.json';
+}
+
+function status_lights_app_ensure_store_directory(StatusLightsAppStoreKind $kind): string
+{
+    $directory = status_lights_app_store_kind_directory($kind);
     if (!is_dir($directory) && !@mkdir($directory, 0755, true) && !is_dir($directory)) {
         throw new RuntimeException('Unable to create app data directory.');
     }
 
-    $path = $directory . '/' . $key . '.json';
+    return $directory;
+}
+
+function status_lights_app_write(StatusLightsAppStoreKind $kind, string $key, array $value): void
+{
+    $path = status_lights_app_record_path($kind, $key);
+    $directory = status_lights_app_ensure_store_directory($kind);
     $temporary = tempnam($directory, 'status-lights-');
     if (!is_string($temporary)) {
         throw new RuntimeException('Unable to create temporary app data file.');
@@ -60,9 +101,47 @@ function status_lights_app_write(string $kind, string $key, array $value): void
     @chmod($path, 0644);
 }
 
-function status_lights_app_read(string $kind, string $key): ?array
+function status_lights_app_create(StatusLightsAppStoreKind $kind, string $key, array $value): bool
 {
-    $path = status_lights_app_store_dir() . '/' . $kind . '/' . $key . '.json';
+    $path = status_lights_app_record_path($kind, $key);
+    status_lights_app_ensure_store_directory($kind);
+    $json = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $handle = @fopen($path, 'x+b');
+
+    if (!is_resource($handle)) {
+        if (is_file($path)) {
+            return false;
+        }
+
+        throw new RuntimeException('Unable to create app data record.');
+    }
+
+    try {
+        if (fwrite($handle, $json) !== strlen($json) || !fflush($handle)) {
+            throw new RuntimeException('Unable to create app data record.');
+        }
+    } catch (Throwable $exception) {
+        fclose($handle);
+        @unlink($path);
+        throw $exception;
+    }
+
+    fclose($handle);
+    @chmod($path, 0644);
+    return true;
+}
+
+function status_lights_app_delete(StatusLightsAppStoreKind $kind, string $key): void
+{
+    $path = status_lights_app_record_path($kind, $key);
+    if (is_file($path) && !@unlink($path)) {
+        throw new RuntimeException('Unable to delete app data record.');
+    }
+}
+
+function status_lights_app_read(StatusLightsAppStoreKind $kind, string $key): ?array
+{
+    $path = status_lights_app_record_path($kind, $key);
     if (!is_file($path)) {
         return null;
     }
@@ -81,9 +160,16 @@ function status_lights_app_read(string $kind, string $key): ?array
     return is_array($value) ? $value : null;
 }
 
-function status_lights_app_prune_runs_older_than(int $cutoff): int
+function status_lights_app_prune_records_older_than(
+    StatusLightsAppStoreKind $kind,
+    int $cutoff,
+): int
 {
-    $directory = status_lights_app_store_dir() . '/runs';
+    if (!in_array($kind, [StatusLightsAppStoreKind::Deliveries, StatusLightsAppStoreKind::Runs], true)) {
+        throw new InvalidArgumentException('This app data record kind may not be pruned.');
+    }
+
+    $directory = status_lights_app_store_kind_directory($kind);
     if (!is_dir($directory)) {
         return 0;
     }
@@ -97,7 +183,11 @@ function status_lights_app_prune_runs_older_than(int $cutoff): int
     $deleted = 0;
 
     foreach ($files as $file) {
-        if (!$file->isFile() || strtolower($file->getExtension()) !== 'json') {
+        if (
+            !$file->isFile()
+            || strtolower($file->getExtension()) !== 'json'
+            || preg_match($kind->keyPattern(), $file->getBasename('.json')) !== 1
+        ) {
             continue;
         }
 
@@ -108,6 +198,16 @@ function status_lights_app_prune_runs_older_than(int $cutoff): int
     }
 
     return $deleted;
+}
+
+function status_lights_app_prune_runs_older_than(int $cutoff): int
+{
+    return status_lights_app_prune_records_older_than(StatusLightsAppStoreKind::Runs, $cutoff);
+}
+
+function status_lights_app_prune_deliveries_older_than(int $cutoff): int
+{
+    return status_lights_app_prune_records_older_than(StatusLightsAppStoreKind::Deliveries, $cutoff);
 }
 
 /** @param resource|null $input */
@@ -165,6 +265,48 @@ function status_lights_app_status_key(string $owner, string $repository, string 
     return status_lights_app_key(...$parts);
 }
 
+function status_lights_app_normalize_delivery_id(mixed $value): ?string
+{
+    if (
+        !is_string($value)
+        || preg_match(
+            '/\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z/iD',
+            $value,
+        ) !== 1
+    ) {
+        return null;
+    }
+
+    return strtolower($value);
+}
+
+function status_lights_app_delivery_key(string $deliveryId): string
+{
+    $normalized = status_lights_app_normalize_delivery_id($deliveryId);
+    if ($normalized === null) {
+        throw new InvalidArgumentException('Invalid GitHub webhook delivery ID.');
+    }
+
+    return status_lights_app_key('delivery', $normalized);
+}
+
+function status_lights_app_claim_delivery(string $deliveryId): bool
+{
+    return status_lights_app_create(
+        StatusLightsAppStoreKind::Deliveries,
+        status_lights_app_delivery_key($deliveryId),
+        ['received_at' => time()],
+    );
+}
+
+function status_lights_app_release_delivery(string $deliveryId): void
+{
+    status_lights_app_delete(
+        StatusLightsAppStoreKind::Deliveries,
+        status_lights_app_delivery_key($deliveryId),
+    );
+}
+
 function status_lights_app_verify_signature(string $body): bool
 {
     $secret = status_lights_app_webhook_secret();
@@ -185,14 +327,20 @@ function status_lights_app_mark_repository(array $repository, ?int $installation
         return;
     }
 
-    status_lights_app_write('repositories', status_lights_app_repo_key($owner, $name), [
-        'owner' => $owner,
-        'repository' => $name,
-        'default_branch' => is_string($repository['default_branch'] ?? null) ? $repository['default_branch'] : null,
-        'installation_id' => $installationId,
-        'installed' => $installed,
-        'updated_at' => time(),
-    ]);
+    status_lights_app_write(
+        StatusLightsAppStoreKind::Repositories,
+        status_lights_app_repo_key($owner, $name),
+        [
+            'owner' => $owner,
+            'repository' => $name,
+            'default_branch' => is_string($repository['default_branch'] ?? null)
+                ? $repository['default_branch']
+                : null,
+            'installation_id' => $installationId,
+            'installed' => $installed,
+            'updated_at' => time(),
+        ],
+    );
 }
 
 function status_lights_app_handle_installation(string $event, array $payload): void
@@ -242,7 +390,7 @@ function status_lights_app_handle_workflow_run(array $payload): void
     $path = $run['path'] ?? null;
     $runId = $run['id'] ?? null;
 
-    if (!is_string($owner) || !is_string($name) || !is_string($path) || !is_int($runId)) {
+    if (!is_string($owner) || !is_string($name) || !is_string($path) || !is_int($runId) || $runId < 1) {
         return;
     }
 
@@ -254,18 +402,28 @@ function status_lights_app_handle_workflow_run(array $payload): void
     $state = status_lights_map_run_state($run);
     $now = time();
 
-    status_lights_app_write('runs', (string) $runId, [
+    status_lights_app_write(StatusLightsAppStoreKind::Runs, (string) $runId, [
         'owner' => $owner,
         'repository' => $name,
         'workflow' => $workflow,
         'updated_at' => $now,
     ]);
-    status_lights_app_write('statuses', status_lights_app_status_key($owner, $name, $workflow), [
-        'state' => $state->value,
-        'updated_at' => $now,
-        'run_id' => $runId,
-    ]);
-    status_lights_app_mark_repository($repository, is_int($payload['installation']['id'] ?? null) ? $payload['installation']['id'] : null, true);
+    status_lights_app_write(
+        StatusLightsAppStoreKind::Statuses,
+        status_lights_app_status_key($owner, $name, $workflow),
+        [
+            'state' => $state->value,
+            'updated_at' => $now,
+            'run_id' => $runId,
+        ],
+    );
+    status_lights_app_mark_repository(
+        $repository,
+        is_int($payload['installation']['id'] ?? null)
+            ? $payload['installation']['id']
+            : null,
+        true,
+    );
 }
 
 function status_lights_app_handle_workflow_job(array $payload): void
@@ -283,7 +441,7 @@ function status_lights_app_handle_workflow_job(array $payload): void
     $headBranch = $job['head_branch'] ?? null;
     $defaultBranch = $repository['default_branch'] ?? null;
 
-    if (!is_string($owner) || !is_string($name) || !is_string($jobName) || !is_int($runId)) {
+    if (!is_string($owner) || !is_string($name) || !is_string($jobName) || !is_int($runId) || $runId < 1) {
         return;
     }
 
@@ -291,17 +449,21 @@ function status_lights_app_handle_workflow_job(array $payload): void
         return;
     }
 
-    $run = status_lights_app_read('runs', (string) $runId);
+    $run = status_lights_app_read(StatusLightsAppStoreKind::Runs, (string) $runId);
     $workflow = $run['workflow'] ?? null;
     if (!is_string($workflow)) {
         return;
     }
 
-    status_lights_app_write('statuses', status_lights_app_status_key($owner, $name, $workflow, $jobName), [
-        'state' => status_lights_map_run_state($job)->value,
-        'updated_at' => time(),
-        'run_id' => $runId,
-    ]);
+    status_lights_app_write(
+        StatusLightsAppStoreKind::Statuses,
+        status_lights_app_status_key($owner, $name, $workflow, $jobName),
+        [
+            'state' => status_lights_map_run_state($job)->value,
+            'updated_at' => time(),
+            'run_id' => $runId,
+        ],
+    );
 }
 
 function status_lights_app_handle_webhook(): never
@@ -332,17 +494,55 @@ function status_lights_app_handle_webhook(): never
         status_lights_send_json(['error' => 'Invalid payload'], 400);
     }
 
-    $event = (string) ($_SERVER['HTTP_X_GITHUB_EVENT'] ?? '');
+    $eventHeader = $_SERVER['HTTP_X_GITHUB_EVENT'] ?? null;
+    $event = is_string($eventHeader) && preg_match('/\A[a-z0-9_]{1,64}\z/D', $eventHeader) === 1
+        ? $eventHeader
+        : null;
+    if ($event === null) {
+        status_lights_send_json(['error' => 'Invalid webhook event'], 400);
+    }
+
+    $deliveryId = status_lights_app_normalize_delivery_id(
+        $_SERVER['HTTP_X_GITHUB_DELIVERY'] ?? null,
+    );
+    if ($deliveryId === null) {
+        status_lights_send_json(['error' => 'Invalid webhook delivery ID'], 400);
+    }
+
+    try {
+        $claimed = status_lights_app_claim_delivery($deliveryId);
+    } catch (Throwable) {
+        status_lights_send_json(['error' => 'Unable to record webhook delivery'], 500);
+    }
+
+    if (!$claimed) {
+        status_lights_send_json([
+            'status' => 'accepted',
+            'event' => $event,
+            'duplicate' => true,
+        ], 202);
+    }
+
     if ($event === 'ping') {
         status_lights_send_json(['status' => 'ok', 'event' => 'ping']);
     }
 
-    if ($event === 'installation' || $event === 'installation_repositories') {
-        status_lights_app_handle_installation($event, $payload);
-    } elseif ($event === 'workflow_run') {
-        status_lights_app_handle_workflow_run($payload);
-    } elseif ($event === 'workflow_job') {
-        status_lights_app_handle_workflow_job($payload);
+    try {
+        if ($event === 'installation' || $event === 'installation_repositories') {
+            status_lights_app_handle_installation($event, $payload);
+        } elseif ($event === 'workflow_run') {
+            status_lights_app_handle_workflow_run($payload);
+        } elseif ($event === 'workflow_job') {
+            status_lights_app_handle_workflow_job($payload);
+        }
+    } catch (Throwable) {
+        try {
+            status_lights_app_release_delivery($deliveryId);
+        } catch (Throwable) {
+            // Preserve the processing failure as the response reason.
+        }
+
+        status_lights_send_json(['error' => 'Unable to process webhook delivery'], 500);
     }
 
     status_lights_send_json(['status' => 'accepted', 'event' => $event], 202);
@@ -352,12 +552,12 @@ function status_lights_app_handle_webhook(): never
 function status_lights_app_resolve(LightRequest $request): array
 {
     $repo = status_lights_app_read(
-        'repositories',
+        StatusLightsAppStoreKind::Repositories,
         status_lights_app_repo_key($request->owner, $request->repository),
     );
     $installed = ($repo['installed'] ?? false) === true;
     $status = status_lights_app_read(
-        'statuses',
+        StatusLightsAppStoreKind::Statuses,
         status_lights_app_status_key(
             $request->owner,
             $request->repository,

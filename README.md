@@ -49,8 +49,9 @@ Status Lights uses an installable GitHub App instead of request-time GitHub API 
 sends `workflow_run` and `workflow_job` webhook events to the PHP backend, which stores the latest
 state locally. SVG requests then read that local state rather than consuming GitHub REST API quota.
 
-Every webhook is verified with GitHub's HMAC-SHA256 signature. The App stores only the repository,
-workflow, job, run, installation, and status metadata needed to serve the lights.
+Every webhook is verified with GitHub's HMAC-SHA256 signature, and duplicate delivery IDs are
+ignored to prevent replay. The App stores only the repository, workflow, job, run, delivery,
+installation, and status metadata needed to serve the lights.
 
 The App needs only read-only GitHub Actions access. It does not need repository write access or a
 personal access token. Operators running their own instance can follow

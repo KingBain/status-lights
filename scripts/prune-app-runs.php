@@ -6,8 +6,14 @@ declare(strict_types=1);
 define('STATUS_LIGHTS_APP_TESTING', true);
 require dirname(__DIR__) . '/generator/app.php';
 
-$retentionDays = status_lights_environment_integer(
+$runRetentionDays = status_lights_environment_integer(
     'STATUS_LIGHTS_RUN_RETENTION_DAYS',
+    7,
+    1,
+    365,
+);
+$deliveryRetentionDays = status_lights_environment_integer(
+    'STATUS_LIGHTS_DELIVERY_RETENTION_DAYS',
     7,
     1,
     365,
@@ -42,8 +48,10 @@ if (ctype_digit($lastRun) && ($now - (int) $lastRun) < $intervalSeconds) {
     exit(0);
 }
 
-$cutoff = $now - ($retentionDays * 86400);
-$deleted = status_lights_app_prune_runs_older_than($cutoff);
+$runCutoff = $now - ($runRetentionDays * 86400);
+$deliveryCutoff = $now - ($deliveryRetentionDays * 86400);
+$deletedRuns = status_lights_app_prune_runs_older_than($runCutoff);
+$deletedDeliveries = status_lights_app_prune_deliveries_older_than($deliveryCutoff);
 
 rewind($lock);
 ftruncate($lock, 0);
@@ -52,6 +60,10 @@ fflush($lock);
 flock($lock, LOCK_UN);
 fclose($lock);
 
-if ($deleted > 0) {
-    fwrite(STDOUT, sprintf("Pruned %d expired Status Lights run record(s).\n", $deleted));
+if ($deletedRuns > 0 || $deletedDeliveries > 0) {
+    fwrite(STDOUT, sprintf(
+        "Pruned %d expired run record(s) and %d expired delivery record(s).\n",
+        $deletedRuns,
+        $deletedDeliveries,
+    ));
 }

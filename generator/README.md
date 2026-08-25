@@ -13,9 +13,9 @@ Normal SVG requests do not call the GitHub REST API.
   SVG routes and resolves statuses from local webhook state.
 - [`index.php`](index.php) provides the shared URL parser, state mapping, SVG renderer, response
   helpers, and legacy request-time resolver used by the test suite.
-- `app-data/` contains generated repository, run, and status records. It must be writable by PHP,
-  must never be served directly, and should have its transient run records pruned with the included
-  maintenance command.
+- `app-data/` contains generated repository, run, delivery, and status records. It must be writable
+  by PHP, must never be served directly, and should have its transient run and delivery records
+  pruned with the included maintenance command.
 
 The hosting environment must route the health, webhook, and SVG paths to `app.php` and prevent
 direct HTTP access to runtime data, caches, and repository files. Keep platform-specific routing
@@ -70,6 +70,7 @@ php generator/tests/run.php
 | `STATUS_LIGHTS_APP_STORE_DIR` | `app-data` beside `app.php` | Writable GitHub App state directory |
 | `STATUS_LIGHTS_MAX_WEBHOOK_BYTES` | `1048576` | Maximum accepted webhook body size (64 KiB to 25 MiB) |
 | `STATUS_LIGHTS_RUN_RETENTION_DAYS` | `7` | Workflow run-link retention used by the pruning script (1 to 365 days) |
+| `STATUS_LIGHTS_DELIVERY_RETENTION_DAYS` | `7` | Webhook replay-record retention used by the pruning script (1 to 365 days) |
 | `STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS` | `86400` | Minimum interval between scans (5 minutes to 7 days) |
 | `STATUS_LIGHTS_HTTP_CACHE_TTL` | `60` | Browser and image-proxy cache duration in seconds |
 
@@ -91,12 +92,13 @@ GitHub sends `POST /webhooks/github` with an `X-Hub-Signature-256` header. Statu
 
 1. rejects request bodies larger than the configured limit and verifies the complete accepted body
    with HMAC-SHA256;
-2. tracks installations and selected repositories from `installation` and
+2. validates `X-GitHub-Delivery` and atomically ignores a delivery ID that was already accepted;
+3. tracks installations and selected repositories from `installation` and
    `installation_repositories` events;
-3. records the latest default-branch workflow state from `workflow_run` events;
-4. temporarily associates `workflow_job` events with the workflow run and records the job display
+4. records the latest default-branch workflow state from `workflow_run` events;
+5. temporarily associates `workflow_job` events with the workflow run and records the job display
    name;
-5. returns HTTP 202 after accepting a supported or safely ignored event.
+6. returns HTTP 202 after accepting a supported, duplicate, or safely ignored event.
 
 Oversized payloads return HTTP 413 and invalid signatures return HTTP 401. A `ping` event returns
 HTTP 200 so GitHub can verify the webhook during App registration.
@@ -152,10 +154,10 @@ STATUS_LIGHTS_APP_STORE_DIR=/path/to/app-data \
   php scripts/prune-app-runs.php
 ```
 
-Only transient files in `app-data/runs/` are pruned. Current repository and workflow/job status
-records remain available. Use `STATUS_LIGHTS_RUN_RETENTION_DAYS` and
-`STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS` to control retention and the minimum interval between
-scans.
+Only transient files in `app-data/runs/` and `app-data/deliveries/` are pruned. Current repository
+and workflow/job status records remain available. Use `STATUS_LIGHTS_RUN_RETENTION_DAYS`,
+`STATUS_LIGHTS_DELIVERY_RETENTION_DAYS`, and `STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS` to control
+retention and the minimum interval between scans.
 
 ## Public endpoint rate limiting
 
@@ -180,5 +182,8 @@ Supported options are `size`, `width`, `font`, `font-size`, `radius`, `text`, `s
 The optional `job/{job-name}` selector must appear immediately after the workflow. Use the job's
 display name from the Actions UI or its workflow `name:` value, not the key under `jobs:`. Encode
 spaces and other path characters in the URL; matching is case-sensitive.
+
+GitHub owner, repository, and workflow identifiers must not be the canonical path segments `.` or
+`..`. Encoded forms of those segments are rejected after URL decoding.
 
 The public URL format did not change when Status Lights moved to the GitHub App architecture.
