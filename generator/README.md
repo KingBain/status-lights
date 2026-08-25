@@ -83,8 +83,8 @@ The legacy request-time resolver in `index.php` also recognizes
 `STATUS_LIGHTS_STALE_TTL`, and `STATUS_LIGHTS_GITHUB_TIMEOUT`. Those settings are not used by normal
 production App-backed SVG requests.
 
-See [`../docs/github-app-setup.md`](../docs/github-app-setup.md) for GitHub App registration,
-permissions, events, and host configuration.
+See the [self-hosting documentation](https://statuslights.dev/docs/#self-hosting) for GitHub App
+registration, permissions, events, and host configuration.
 
 ## Webhook flow
 

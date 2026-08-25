@@ -48,7 +48,7 @@ class SiteParser(HTMLParser):
             self.in_head = False
 
 
-def local_path(reference: str) -> Path | None:
+def local_path(reference: str, source: Path) -> Path | None:
     parsed = urlparse(reference)
 
     if parsed.scheme or parsed.netloc or reference.startswith(("#", "mailto:")):
@@ -59,12 +59,47 @@ def local_path(reference: str) -> Path | None:
     if not clean:
         return None
 
-    return SITE / clean.lstrip("/")
+    if clean.startswith("/"):
+        path = SITE / clean.lstrip("/")
+    else:
+        path = source.parent / clean
+
+    if path.is_dir():
+        path = path / "index.html"
+
+    return path
+
+
+def validate_page(page: Path, required_ids: set[str] | None = None) -> list[str]:
+    parser = SiteParser()
+    parser.feed(page.read_text(encoding="utf-8"))
+    name = str(page.relative_to(ROOT))
+    problems: list[str] = []
+
+    if parser.title_count != 1:
+        problems.append(f"{name} must contain exactly one title")
+    if parser.h1_count != 1:
+        problems.append(f"{name} must contain exactly one h1")
+    if parser.description_count != 1:
+        problems.append(f"{name} must contain exactly one meta description")
+
+    if required_ids:
+        missing_ids = sorted(required_ids - parser.ids)
+        if missing_ids:
+            problems.append(f"{name} is missing required section IDs: {', '.join(missing_ids)}")
+
+    for tag, reference in parser.references:
+        path = local_path(reference, page)
+        if path is not None and not path.exists():
+            problems.append(f"{name}: {tag} references missing file: {reference}")
+
+    return problems
 
 
 def main() -> None:
     required_files = [
         SITE / "index.html",
+        SITE / "docs" / "index.html",
         SITE / "styles.css",
         SITE / "script.js",
         SITE / "favicon.svg",
@@ -76,29 +111,26 @@ def main() -> None:
     if missing:
         raise SystemExit("Missing required site files: " + ", ".join(missing))
 
-    parser = SiteParser()
-    parser.feed((SITE / "index.html").read_text(encoding="utf-8"))
-
-    problems: list[str] = []
-
-    if parser.title_count != 1:
-        problems.append("index.html must contain exactly one title")
-    if parser.h1_count != 1:
-        problems.append("index.html must contain exactly one h1")
-    if parser.description_count != 1:
-        problems.append("index.html must contain exactly one meta description")
-
-    required_ids = {"top", "install", "how-it-works", "customize", "principles", "roadmap"}
-    missing_ids = sorted(required_ids - parser.ids)
-
-    if missing_ids:
-        problems.append("missing required section IDs: " + ", ".join(missing_ids))
-
-    for tag, reference in parser.references:
-        path = local_path(reference)
-
-        if path is not None and not path.exists():
-            problems.append(f"{tag} references missing file: {reference}")
+    problems = validate_page(
+        SITE / "index.html",
+        {"top", "install", "how-it-works", "customize", "principles", "roadmap"},
+    )
+    problems.extend(
+        validate_page(
+            SITE / "docs" / "index.html",
+            {
+                "top",
+                "getting-started",
+                "install",
+                "build-a-url",
+                "embed",
+                "url-reference",
+                "troubleshooting",
+                "self-hosting",
+                "security",
+            },
+        )
+    )
 
     if problems:
         raise SystemExit("Site validation failed:\n- " + "\n- ".join(problems))

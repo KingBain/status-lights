@@ -43,6 +43,7 @@ jobs:
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
           curl --fail --retry 5 --retry-connrefused http://127.0.0.1:4173/ > /dev/null
+          curl --fail http://127.0.0.1:4173/docs/ > /dev/null
           curl --fail http://127.0.0.1:4173/styles.css > /dev/null
           curl --fail http://127.0.0.1:4173/script.js > /dev/null
 

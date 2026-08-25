@@ -40,7 +40,7 @@ permission. It has no repository write permission and never needs your personal 
 newly installed repository shows `unknown` until the selected workflow runs once after installation.
 
 Status-light URLs are public and do not require authentication. Install the public service only on
-public repositories. See the [getting-started guide](docs/getting-started.md) for workflow and job
+public repositories. See the [documentation](https://statuslights.dev/docs/#getting-started) for workflow and job
 examples, permission details, and troubleshooting.
 
 ## GitHub App architecture
@@ -55,12 +55,12 @@ installation, and status metadata needed to serve the lights.
 
 The App needs only read-only GitHub Actions access. It does not need repository write access or a
 personal access token. Operators running their own instance can follow
-[`docs/github-app-setup.md`](docs/github-app-setup.md) for registration, webhook, hosting, and
+[self-hosting guide](https://statuslights.dev/docs/#self-hosting) for registration, webhook, hosting, and
 security configuration.
 
 ## Website
 
-The public documentation site is [statuslights.dev](https://statuslights.dev). The static site lives
+The public website is [statuslights.dev](https://statuslights.dev), with full usage and self-hosting documentation at [statuslights.dev/docs/](https://statuslights.dev/docs/). The static site lives
 in [`site/`](site/) and is published with GitHub Pages after changes reach `main`.
 
 The backend source lives in [`generator/`](generator/) and runs separately at
