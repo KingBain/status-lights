@@ -1,3 +1,2 @@
-/var/cache/*
-!/var/cache/.gitkeep
-
+/cache/*
+!/cache/.gitkeep

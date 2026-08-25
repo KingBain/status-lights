@@ -3,14 +3,18 @@ name: PHP generator
 on:
   pull_request:
     paths:
+      - ".cpanel.yml"
       - ".github/workflows/generator.yml"
       - "generator/**"
+      - "scripts/cpanel-pull-deploy.sh"
   push:
     branches:
       - main
     paths:
+      - ".cpanel.yml"
       - ".github/workflows/generator.yml"
       - "generator/**"
+      - "scripts/cpanel-pull-deploy.sh"
   workflow_dispatch:
 
 permissions:
@@ -35,11 +39,11 @@ jobs:
           extensions: curl, json
           coverage: none
 
-      - name: Validate Composer metadata
-        working-directory: generator
-        run: composer validate --strict
+      - name: Lint generator
+        run: find generator -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Lint and test generator
-        working-directory: generator
-        run: composer check
+      - name: Test generator
+        run: php generator/tests/run.php
 
+      - name: Validate cPanel pull script
+        run: bash -n scripts/cpanel-pull-deploy.sh

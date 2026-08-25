@@ -7,22 +7,20 @@ This repository contains the public website and the PHP generator service.
 
 ## Website
 
-The public documentation site is [statuslights.dev](https://statuslights.dev).
-The static site lives in [`site/`](site/) and is published with GitHub Pages after changes reach `main`.
+The public documentation site is [statuslights.dev](https://statuslights.dev). The static site lives
+in [`site/`](site/) and is published with GitHub Pages after changes reach `main`.
 
-The generator source lives in [`generator/`](generator/) and is designed to run separately at
-`g.statuslights.dev`. Its canonical GitHub
-Actions route will be:
+The generator source lives in [`generator/`](generator/) and runs separately at
+[`g.statuslights.dev`](https://g.statuslights.dev). Its canonical GitHub Actions route is:
 
 ```text
 https://g.statuslights.dev/github/{owner}/{repository}/{workflow}.svg
 ```
 
 The generator resolves the latest public workflow run on the repository's default branch, caches
-the state, and renders the result as an SVG. Until the service is deployed, the website continues
-to label generated URLs as planned.
+the state, and renders the result as an SVG.
 
-To view it locally:
+To view the documentation site locally:
 
 ```bash
 python3 -m http.server 8000 --directory site
@@ -35,11 +33,13 @@ Then open <http://localhost:8000>.
 ```bash
 python3 scripts/validate-site.py
 node --check site/script.js
-find generator/public generator/src generator/tests generator/router.php -name '*.php' -print0 | xargs -0 -n1 php -l
+find generator -name '*.php' -print0 | xargs -0 -n1 php -l
 php generator/tests/run.php
+bash -n scripts/cpanel-pull-deploy.sh
 ```
 
-Generator setup, configuration, URL options, and cPanel deployment instructions are documented in
+The PHP generator is a single-file, dependency-free application. Generator setup, configuration,
+URL options, and the cPanel pull deployment are documented in
 [`generator/README.md`](generator/README.md).
 
 ## Project direction
