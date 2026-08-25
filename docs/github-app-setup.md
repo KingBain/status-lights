@@ -49,7 +49,9 @@ STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET=<same random secret configured in GitHub>
 
 The deployed PHP application writes runtime state beneath `app-data/`. Apache denies direct HTTP
 access to that directory. The application also accepts `STATUS_LIGHTS_APP_STORE_DIR` when runtime
-data must live somewhere else.
+data must live somewhere else. Webhook bodies are limited to 1 MiB by default; self-hosters can set
+`STATUS_LIGHTS_MAX_WEBHOOK_BYTES` from 65536 through 26214400 when an installation legitimately
+needs a larger payload.
 
 After deployment, `https://g.statuslights.dev/health` should report both `app_store_writable` and `webhook_secret_configured` as `true`.
 
@@ -71,10 +73,32 @@ webhook event. GitHub does not replay earlier events during installation. A futu
 use a GitHub App installation token to seed existing workflow states immediately; this does not
 require changing the public SVG URL format.
 
+## Maintain the file store
+
+Workflow run records only connect `workflow_job` deliveries to their parent workflow. They are
+temporary and should not accumulate indefinitely. Run the included pruning command at least daily;
+it deletes only run records older than seven days by default:
+
+```bash
+STATUS_LIGHTS_APP_STORE_DIR=/path/to/app-data \
+  php scripts/prune-app-runs.php
+```
+
+Set `STATUS_LIGHTS_RUN_RETENTION_DAYS` from 1 through 365 to change the retention period. The
+included cPanel pull/deploy cron invokes the maintenance command on every polling cycle; an app-data
+lock limits the scan itself to once per day. `STATUS_LIGHTS_RUN_PRUNE_INTERVAL_SECONDS` can change
+that interval from 300 through 604800 seconds.
+
 ## Security model
 
-Status Lights validates every GitHub webhook with `X-Hub-Signature-256` using HMAC-SHA256 and the configured webhook secret. Invalid signatures are rejected with HTTP 401.
+Status Lights bounds the request body before parsing it, then validates every accepted GitHub
+webhook with `X-Hub-Signature-256` using HMAC-SHA256 and the configured webhook secret. Oversized
+payloads are rejected with HTTP 413 and invalid signatures with HTTP 401.
 
 The webhook-first implementation does not require a personal access token and does not need
 repository write access. Runtime data contains repository, workflow, job, run, installation, and
 status metadata only and is stored outside direct HTTP access.
+
+Public SVG routes should also be protected with web-server or WAF rate limits. Enforce those limits
+before PHP, and keep webhook traffic on a separate rule so valid signed GitHub deliveries are not
+throttled with public image requests.

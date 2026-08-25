@@ -85,7 +85,7 @@ Then open <http://localhost:8000>.
 ```bash
 python3 scripts/validate-site.py
 node --check site/script.js
-find generator -name '*.php' -print0 | xargs -0 -n1 php -l
+find generator scripts -name '*.php' -print0 | xargs -0 -n1 php -l
 php generator/tests/run.php
 bash -n scripts/cpanel-pull-deploy.sh
 ```

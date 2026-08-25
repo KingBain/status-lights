@@ -48,6 +48,16 @@
 
   let selectedState = "success";
 
+  const debounce = (callback, delay) => {
+    let timeoutId;
+    const debounced = (...args) => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => callback(...args), delay);
+    };
+    debounced.cancel = () => window.clearTimeout(timeoutId);
+    return debounced;
+  };
+
   const cleanSourceSegment = (value, fallback) => {
     const cleaned = value.trim().replace(/[^A-Za-z0-9._-]/g, "");
     return cleaned || fallback;
@@ -177,8 +187,14 @@
     }, 1600);
   };
 
-  form.addEventListener("input", updatePreview);
-  form.addEventListener("change", updatePreview);
+  const updatePreviewDebounced = debounce(updatePreview, 100);
+  const updatePreviewImmediately = () => {
+    updatePreviewDebounced.cancel();
+    updatePreview();
+  };
+
+  form.addEventListener("input", updatePreviewDebounced);
+  form.addEventListener("change", updatePreviewImmediately);
   elements.copyButton.addEventListener("click", copyUrl);
 
   document.querySelectorAll(".state-button").forEach((button) => {
@@ -187,7 +203,7 @@
       document.querySelectorAll(".state-button").forEach((candidate) => {
         candidate.classList.toggle("active", candidate === button);
       });
-      updatePreview();
+      updatePreviewImmediately();
     });
   });
 
