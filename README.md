@@ -18,8 +18,9 @@ Actions route will be:
 https://g.statuslights.dev/github/{owner}/{repository}/{workflow}.svg
 ```
 
-The generator resolves the latest public workflow run, caches the state, and renders the result as
-an SVG. Until the service is deployed, the website continues to label generated URLs as planned.
+The generator resolves the latest public workflow run on the repository's default branch, caches
+the state, and renders the result as an SVG. Until the service is deployed, the website continues
+to label generated URLs as planned.
 
 To view it locally:
 

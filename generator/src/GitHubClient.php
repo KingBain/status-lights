@@ -14,11 +14,50 @@ final class GitHubClient implements WorkflowStatusProvider
 
     public function fetchState(string $owner, string $repository, string $workflow): string
     {
+        $payload = $this->fetchRuns($owner, $repository, $workflow);
+        $run = $payload['workflow_runs'][0] ?? null;
+
+        if (!is_array($run)) {
+            return WorkflowState::UNKNOWN;
+        }
+
+        $defaultBranch = $run['repository']['default_branch'] ?? null;
+        $headBranch = $run['head_branch'] ?? null;
+
+        // An unfiltered workflow-runs request can return a PR or feature-branch run. The run
+        // includes the repository's default branch, so only make a second API request when the
+        // newest run is not the production branch we want to represent.
+        if (
+            is_string($defaultBranch)
+            && $defaultBranch !== ''
+            && $headBranch !== $defaultBranch
+        ) {
+            $payload = $this->fetchRuns($owner, $repository, $workflow, $defaultBranch);
+            $run = $payload['workflow_runs'][0] ?? null;
+        }
+
+        return is_array($run) ? $this->mapRunToState($run) : WorkflowState::UNKNOWN;
+    }
+
+    /** @return array<string, mixed> */
+    private function fetchRuns(
+        string $owner,
+        string $repository,
+        string $workflow,
+        ?string $branch = null,
+    ): array {
+        $query = ['per_page' => '1'];
+
+        if ($branch !== null) {
+            $query['branch'] = $branch;
+        }
+
         $url = sprintf(
-            'https://api.github.com/repos/%s/%s/actions/workflows/%s/runs?per_page=1',
+            'https://api.github.com/repos/%s/%s/actions/workflows/%s/runs?%s',
             rawurlencode($owner),
             rawurlencode($repository),
             rawurlencode($workflow),
+            http_build_query($query, encoding_type: PHP_QUERY_RFC3986),
         );
         $headers = [
             'Accept: application/vnd.github+json',
@@ -63,13 +102,15 @@ final class GitHubClient implements WorkflowStatusProvider
             throw new \RuntimeException('GitHub returned invalid JSON.', previous: $exception);
         }
 
-        if (!is_array($payload) || !isset($payload['workflow_runs']) || !is_array($payload['workflow_runs'])) {
+        if (
+            !is_array($payload)
+            || !isset($payload['workflow_runs'])
+            || !is_array($payload['workflow_runs'])
+        ) {
             throw new \RuntimeException('GitHub returned an unexpected response.');
         }
 
-        $run = $payload['workflow_runs'][0] ?? null;
-
-        return is_array($run) ? $this->mapRunToState($run) : WorkflowState::UNKNOWN;
+        return $payload;
     }
 
     /** @param array<string, mixed> $run */
@@ -91,4 +132,3 @@ final class GitHubClient implements WorkflowStatusProvider
         };
     }
 }
-

@@ -1,8 +1,8 @@
 # Generator service
 
 This folder contains the dependency-free PHP service deployed at
-[`g.statuslights.dev`](https://g.statuslights.dev). It resolves the latest run of a public GitHub
-Actions workflow and returns a compact SVG status light.
+[`g.statuslights.dev`](https://g.statuslights.dev). It resolves the latest run on the repository's
+default branch for a public GitHub Actions workflow and returns a compact SVG status light.
 
 ## Requirements
 
