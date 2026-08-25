@@ -1,9 +1,9 @@
 Options -Indexes -MultiViews
 
-DirectoryIndex index.php
+DirectoryIndex app.php
 
 RewriteEngine On
-RewriteRule ^(?:cache|gh)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:cache|app-data|gh)(?:/|$) - [F,L,NC]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.php [L,QSA]
+RewriteRule ^ app.php [L,QSA]
