@@ -6,7 +6,18 @@ This repository is starting with the public website. The status-light service it
 
 ## Website
 
+The public documentation site is [statuslights.dev](https://statuslights.dev).
 The static site lives in [`site/`](site/) and is published with GitHub Pages after changes reach `main`.
+
+The production generator will run separately at `g.statuslights.dev`. Its canonical GitHub
+Actions route will be:
+
+```text
+https://g.statuslights.dev/github/{owner}/{repository}/{workflow}.svg
+```
+
+The generator is not live yet; the website labels its generated URLs as planned until the
+production endpoint is available.
 
 To view it locally:
 
@@ -32,9 +43,9 @@ node --check site/script.js
 - Custom text, size, font, corner radius, and state colours
 - Small SVG output designed for Markdown dashboards
 
-The website labels the service as under construction until a production endpoint is available.
+The public site and generator use separate hosts so the documentation can remain on GitHub Pages
+while the PHP service runs on its application host.
 
 ## License
 
 [MIT](LICENSE)
-

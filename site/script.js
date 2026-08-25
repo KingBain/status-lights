@@ -2,6 +2,7 @@
   "use strict";
 
   const form = document.querySelector("#light-builder");
+  const generatorOrigin = "https://g.statuslights.dev";
 
   if (!form) {
     return;
@@ -136,7 +137,7 @@
       path[path.length - 1] = `${path[path.length - 1]}.svg`;
     }
 
-    elements.generatedUrl.textContent = path.join("/");
+    elements.generatedUrl.textContent = `${generatorOrigin}${path.join("/")}`;
   };
 
   const copyUrl = async () => {
