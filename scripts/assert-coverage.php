@@ -36,6 +36,23 @@ foreach ($checks as $name => [$total, $covered]) {
 }
 
 if ($failed) {
+    foreach ($report->project->file as $file) {
+        $uncovered = [];
+        foreach ($file->line as $line) {
+            if ((string) $line['type'] === 'stmt' && (int) $line['count'] === 0) {
+                $uncovered[] = (int) $line['num'];
+            }
+        }
+
+        if ($uncovered !== []) {
+            fwrite(STDERR, sprintf(
+                "Uncovered %s: %s\n",
+                (string) $file['name'],
+                implode(', ', $uncovered),
+            ));
+        }
+    }
+
     fwrite(STDERR, "Coverage must be exactly 100%.\n");
     exit(1);
 }
