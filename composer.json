@@ -1,0 +1,22 @@
+{
+    "name": "kingbain/status-lights",
+    "description": "Dependency-free GitHub Actions status light generator",
+    "type": "project",
+    "require": {
+        "php": ">=8.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
+    "scripts": {
+        "test": "php generator/tests/run.php",
+        "coverage": [
+            "@php -d xdebug.mode=coverage vendor/bin/phpunit --coverage-clover build/coverage/clover.xml --coverage-text",
+            "@php scripts/assert-coverage.php build/coverage/clover.xml"
+        ]
+    },
+    "config": {
+        "allow-plugins": false,
+        "sort-packages": true
+    }
+}
