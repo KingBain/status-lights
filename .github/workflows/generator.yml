@@ -44,7 +44,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: curl, json
-          tools: phpunit, phpstan
+          tools: phpunit
           coverage: pcov
 
       - name: Syntax Lint (php -l)
