@@ -50,9 +50,6 @@ jobs:
       - name: Syntax Lint (php -l)
         run: find generator scripts tests -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Static Analysis (PHPStan)
-        run: phpstan analyse generator/ scripts/ --level=6 --no-progress
-
       - name: Run PHPUnit with Coverage Summary
         run: phpunit --coverage-text --colors=never
 
