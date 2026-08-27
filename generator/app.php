@@ -2,13 +2,7 @@
 
 declare(strict_types=1);
 
-if (!defined('STATUS_LIGHTS_TESTING')) {
-    // @codeCoverageIgnoreStart
-    define('STATUS_LIGHTS_TESTING', true);
-    // @codeCoverageIgnoreEnd
-}
-
-require_once __DIR__ . '/index.php';
+require_once __DIR__ . '/core.php';
 
 final class StatusLightsPayloadTooLargeException extends RuntimeException
 {
