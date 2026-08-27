@@ -10,7 +10,7 @@ if (!defined('STATUS_LIGHTS_APP_TESTING')) {
 
 use PHPUnit\Framework\TestCase;
 
-require_once __DIR__ . '/../generator/app.php';
+require_once __DIR__ . '/../app.php';
 
 class MockSystem implements StatusLightsSystem {
     public array $env = [];
