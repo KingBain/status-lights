@@ -9,7 +9,6 @@ on:
       - ".github/workflows/**"
       - "generator/**"
       - "scripts/**"
-      - "tests/**"
       - "phpunit.xml"
   push:
     branches:
@@ -19,7 +18,6 @@ on:
       - ".github/workflows/**"
       - "generator/**"
       - "scripts/**"
-      - "tests/**"
       - "phpunit.xml"
   workflow_dispatch:
 
@@ -48,7 +46,7 @@ jobs:
           coverage: pcov
 
       - name: Syntax Lint (php -l)
-        run: find generator scripts tests -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: find generator scripts -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Run PHPUnit with Coverage Summary
         run: phpunit --coverage-text --coverage-clover clover.xml --colors=never
@@ -58,7 +56,7 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           file: clover.xml
-          format: clover [1, 6]
+          format: clover
 
       - name: Validate cPanel pull script
         run: bash -n scripts/cpanel-pull-deploy.sh

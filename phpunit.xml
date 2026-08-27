@@ -8,7 +8,7 @@
          displayDetailsOnTestsThatTriggerWarnings="true">
     <testsuites>
         <testsuite name="Status Lights Test Suite">
-            <directory>tests</directory>
+            <directory>generator/tests</directory>
         </testsuite>
     </testsuites>
     <source>
