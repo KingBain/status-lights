@@ -767,14 +767,25 @@ function status_lights_render_svg(LightRequest $request, array $result): string
             $state->value,
         ),
         '<title id="title">' . status_lights_escape($title) . '</title>',
-        sprintf(
-            '<rect width="%d" height="%d" rx="%d" fill="%s"/>',
-            $width,
-            $request->height,
-            $request->radius,
-            $background,
-        ),
     ];
+
+    if ($state === StatusLightState::Running) {
+        $svg[] = '<style>'
+            . '@keyframes status-lights-pulse{'
+            . '0%,100%{opacity:1}'
+            . '50%{opacity:.5}'
+            . '}'
+            . 'rect{animation:status-lights-pulse 2s ease-in-out infinite}'
+            . '</style>';
+    }
+
+    $svg[] = sprintf(
+        '<rect width="%d" height="%d" rx="%d" fill="%s"/>',
+        $width,
+        $request->height,
+        $request->radius,
+        $background,
+    );
 
     if ($label !== '') {
         $svg[] = sprintf(

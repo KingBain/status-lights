@@ -430,6 +430,25 @@ test('uses a square SVG when no text is requested', static function (): void {
     expect(!str_contains($svg, '<text'));
 });
 
+test('animates the SVG for a running state only', static function (): void {
+    $result = [
+        'state' => StatusLightState::Running,
+        'cache_status' => 'miss',
+        'fetched_at' => 1,
+    ];
+    $runningSvg = status_lights_render_svg(requestFixture(), $result);
+
+    $result['state'] = StatusLightState::Success;
+    $successSvg = status_lights_render_svg(requestFixture(), $result);
+
+    expect(str_contains($runningSvg, '@keyframes status-lights-pulse'));
+    expect(str_contains(
+        $runningSvg,
+        'rect{animation:status-lights-pulse 2s ease-in-out infinite}',
+    ));
+    expect(!str_contains($successSvg, '@keyframes status-lights-pulse'));
+});
+
 test('identifies a selected job in accessible SVG text', static function (): void {
     $request = status_lights_parse_request(
         '/github/KingBain/status-lights/pages.yml/job/Deploy%20site.svg',
