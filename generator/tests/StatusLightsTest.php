@@ -99,9 +99,10 @@ final class StatusLightsTest extends TestCase {
     
     public function testStatusLightsRealSystemIntegration(): void {
         $real = new StatusLightsRealSystem('php://memory');
-        $temp = $real->tempnam(sys_get_temp_dir(), 'real-test-');
+        $temp = sys_get_temp_dir() . '/real-test-' . uniqid('', true) . '.json';
+        
         $this->assertTrue($real->createAtomicFile($temp, 'test'));
-        $this->assertFalse($real->createAtomicFile($temp, 'fail')); // Exists
+        $this->assertFalse($real->createAtomicFile($temp, 'fail')); // Returns false because it now exists
         $this->assertSame('test', $real->fileGetContents($temp));
         $this->assertTrue($real->unlink($temp));
     }
