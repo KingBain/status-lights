@@ -592,6 +592,10 @@ test('returns unknown when the provider has no usable data', static function ():
     rmdir($directory);
 });
 
+if (defined('STATUS_LIGHTS_PHPUNIT')) {
+    return $tests;
+}
+
 $failures = 0;
 
 foreach ($tests as [$name, $test]) {
@@ -605,13 +609,5 @@ foreach ($tests as [$name, $test]) {
 }
 
 fwrite(STDOUT, sprintf("\n%d tests, %d failures.\n", count($tests), $failures));
-
-if (defined('STATUS_LIGHTS_PHPUNIT')) {
-    if ($failures > 0) {
-        throw new RuntimeException(sprintf('%d legacy test(s) failed.', $failures));
-    }
-
-    return;
-}
 
 exit($failures === 0 ? 0 : 1);
