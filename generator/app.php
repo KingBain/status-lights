@@ -615,6 +615,11 @@ function status_lights_app_main(): never
         $request = status_lights_parse_request($_SERVER['REQUEST_URI'] ?? '/');
         $result = status_lights_app_resolve($request);
         $config = status_lights_config();
+
+        if ($request->format === 'json') {
+            status_lights_send_json($result, 200, (int) $config['http_cache_ttl'], $result);
+        }
+
         status_lights_send_svg(status_lights_render_svg($request, $result), 200, (int) $config['http_cache_ttl'], $result);
     } catch (StatusLightsRouteException $exception) {
         status_lights_send_svg(status_lights_render_error($exception->getMessage()), $exception->statusCode, 0);
