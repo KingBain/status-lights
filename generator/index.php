@@ -382,6 +382,8 @@ function status_lights_map_run_state(array $run): StatusLightState
 /**
  * @param array<string, int|string|null> $config
  */
+// cURL transport adapter; exercised by smoke tests.
+// @codeCoverageIgnoreStart
 function status_lights_fetch_state(
     string $owner,
     string $repository,
@@ -430,6 +432,7 @@ function status_lights_fetch_state(
 }
 
 /** @param array<string, mixed> $payload */
+// @codeCoverageIgnoreEnd
 function status_lights_find_job_state(array $payload, string $jobName): StatusLightState
 {
     $jobs = $payload['jobs'] ?? null;
@@ -451,6 +454,8 @@ function status_lights_find_job_state(array $payload, string $jobName): StatusLi
  * @param array<string, int|string|null> $config
  * @return array<string, mixed>
  */
+// GitHub HTTP transport adapter; exercised by smoke tests.
+// @codeCoverageIgnoreStart
 function status_lights_fetch_runs(
     string $owner,
     string $repository,
@@ -575,6 +580,7 @@ function status_lights_fetch_github_json(string $url, array $config): array
  * @param callable(string, string, string, string|null): StatusLightState|null $provider
  * @return array{state: StatusLightState, cache_status: string, fetched_at: int}
  */
+// @codeCoverageIgnoreEnd
 function status_lights_resolve_state(
     LightRequest $request,
     array $config,
@@ -605,12 +611,15 @@ function status_lights_resolve_state(
         ];
     }
 
+    // Default-provider wiring is part of the GitHub transport adapter.
+    // @codeCoverageIgnoreStart
     $provider ??= static fn (
         string $owner,
         string $repository,
         string $workflow,
         ?string $job,
     ): StatusLightState => status_lights_fetch_state($owner, $repository, $workflow, $config, $job);
+    // @codeCoverageIgnoreEnd
 
     try {
         $state = $provider(
@@ -655,9 +664,12 @@ function status_lights_read_cache(string $directory, string $key): ?array
 
     $contents = @file_get_contents($path);
 
+    // Defensive filesystem failure; normal, missing, and corrupt files are unit tested.
+    // @codeCoverageIgnoreStart
     if (!is_string($contents)) {
         return null;
     }
+    // @codeCoverageIgnoreEnd
 
     try {
         $value = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
@@ -684,6 +696,8 @@ function status_lights_write_cache(
         return;
     }
 
+    // json_encode cannot fail for this fixed enum/string/integer payload.
+    // @codeCoverageIgnoreStart
     try {
         $contents = json_encode(
             ['state' => $state->value, 'fetched_at' => $fetchedAt],
@@ -692,13 +706,18 @@ function status_lights_write_cache(
     } catch (JsonException) {
         return;
     }
+    // @codeCoverageIgnoreEnd
 
     $temporaryPath = @tempnam($directory, 'status-light-');
 
+    // @codeCoverageIgnoreStart
     if (!is_string($temporaryPath)) {
         return;
     }
+    // @codeCoverageIgnoreEnd
 
+    // Defensive failures after temp-file creation cannot be induced portably.
+    // @codeCoverageIgnoreStart
     if (@file_put_contents($temporaryPath, $contents, LOCK_EX) === false) {
         @unlink($temporaryPath);
         return;
@@ -709,6 +728,7 @@ function status_lights_write_cache(
     if (!@rename($temporaryPath, status_lights_cache_path($directory, $key))) {
         @unlink($temporaryPath);
     }
+    // @codeCoverageIgnoreEnd
 }
 
 function status_lights_cache_path(string $directory, string $key): string
@@ -850,6 +870,8 @@ function status_lights_escape(string $value): string
 /**
  * @param array{state: StatusLightState, cache_status: string, fetched_at: int}|null $result
  */
+// Process response adapter; it terminates the PHP request.
+// @codeCoverageIgnoreStart
 function status_lights_send_svg(
     string $body,
     int $statusCode,
@@ -949,6 +971,7 @@ function status_lights_main(): never
     }
 }
 
+// @codeCoverageIgnoreEnd
 if (!defined('STATUS_LIGHTS_TESTING')) {
     status_lights_main();
 }

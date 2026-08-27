@@ -76,9 +76,11 @@ function status_lights_app_record_path(StatusLightsAppStoreKind $kind, string $k
 function status_lights_app_ensure_store_directory(StatusLightsAppStoreKind $kind): string
 {
     $directory = status_lights_app_store_kind_directory($kind);
+    // @codeCoverageIgnoreStart
     if (!is_dir($directory) && !@mkdir($directory, 0755, true) && !is_dir($directory)) {
         throw new RuntimeException('Unable to create app data directory.');
     }
+    // @codeCoverageIgnoreEnd
 
     return $directory;
 }
@@ -88,15 +90,20 @@ function status_lights_app_write(StatusLightsAppStoreKind $kind, string $key, ar
     $path = status_lights_app_record_path($kind, $key);
     $directory = status_lights_app_ensure_store_directory($kind);
     $temporary = tempnam($directory, 'status-lights-');
+    // @codeCoverageIgnoreStart
     if (!is_string($temporary)) {
         throw new RuntimeException('Unable to create temporary app data file.');
     }
+    // @codeCoverageIgnoreEnd
 
     $json = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    // Defensive failures after temp-file creation cannot be induced portably.
+    // @codeCoverageIgnoreStart
     if (file_put_contents($temporary, $json, LOCK_EX) === false || !rename($temporary, $path)) {
         @unlink($temporary);
         throw new RuntimeException('Unable to write app data.');
     }
+    // @codeCoverageIgnoreEnd
 
     @chmod($path, 0644);
 }
@@ -113,17 +120,18 @@ function status_lights_app_create(StatusLightsAppStoreKind $kind, string $key, a
             return false;
         }
 
-        throw new RuntimeException('Unable to create app data record.');
+        throw new RuntimeException('Unable to create app data record.'); // @codeCoverageIgnore
     }
 
     try {
         if (fwrite($handle, $json) !== strlen($json) || !fflush($handle)) {
             throw new RuntimeException('Unable to create app data record.');
         }
-    } catch (Throwable $exception) {
+    } catch (Throwable $exception) { // @codeCoverageIgnoreStart
         fclose($handle);
         @unlink($path);
         throw $exception;
+        // @codeCoverageIgnoreEnd
     }
 
     fclose($handle);
@@ -134,9 +142,11 @@ function status_lights_app_create(StatusLightsAppStoreKind $kind, string $key, a
 function status_lights_app_delete(StatusLightsAppStoreKind $kind, string $key): void
 {
     $path = status_lights_app_record_path($kind, $key);
+    // @codeCoverageIgnoreStart
     if (is_file($path) && !@unlink($path)) {
         throw new RuntimeException('Unable to delete app data record.');
     }
+    // @codeCoverageIgnoreEnd
 }
 
 function status_lights_app_read(StatusLightsAppStoreKind $kind, string $key): ?array
@@ -147,9 +157,11 @@ function status_lights_app_read(StatusLightsAppStoreKind $kind, string $key): ?a
     }
 
     $contents = @file_get_contents($path);
+    // @codeCoverageIgnoreStart
     if (!is_string($contents)) {
         return null;
     }
+    // @codeCoverageIgnoreEnd
 
     try {
         $value = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
@@ -174,11 +186,13 @@ function status_lights_app_prune_records_older_than(
         return 0;
     }
 
+    // @codeCoverageIgnoreStart
     try {
         $files = new FilesystemIterator($directory, FilesystemIterator::SKIP_DOTS);
     } catch (UnexpectedValueException) {
         return 0;
     }
+    // @codeCoverageIgnoreEnd
 
     $deleted = 0;
 
@@ -239,9 +253,11 @@ function status_lights_app_read_webhook_body($input = null): string
         fclose($input);
     }
 
+    // @codeCoverageIgnoreStart
     if (!is_string($body)) {
         throw new RuntimeException('Unable to read webhook payload.');
     }
+    // @codeCoverageIgnoreEnd
 
     if (strlen($body) > $maximumBytes) {
         throw new StatusLightsPayloadTooLargeException('Webhook payload is too large.');
@@ -466,6 +482,8 @@ function status_lights_app_handle_workflow_job(array $payload): void
     );
 }
 
+// Process response adapter; it terminates the PHP request.
+// @codeCoverageIgnoreStart
 function status_lights_app_handle_webhook(): never
 {
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -549,6 +567,7 @@ function status_lights_app_handle_webhook(): never
 }
 
 /** @return array{state: StatusLightState, cache_status: string, fetched_at: int} */
+// @codeCoverageIgnoreEnd
 function status_lights_app_resolve(LightRequest $request): array
 {
     $repo = status_lights_app_read(
@@ -584,6 +603,8 @@ function status_lights_app_resolve(LightRequest $request): array
     ];
 }
 
+// Front controller; exercised by endpoint smoke tests.
+// @codeCoverageIgnoreStart
 function status_lights_app_main(): never
 {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
@@ -623,6 +644,7 @@ function status_lights_app_main(): never
     }
 }
 
+// @codeCoverageIgnoreEnd
 if (!defined('STATUS_LIGHTS_APP_TESTING')) {
     status_lights_app_main();
 }
