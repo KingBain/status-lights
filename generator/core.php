@@ -101,6 +101,9 @@ interface StatusLightsSystem
     public function getJsonFilesInDirectory(string $path): iterable;
 
     /**
+     * @codeCoverageIgnore
+     * Justification: Requires external network access to the GitHub REST API and is exercised through the injectable transport seam.
+     *
      * @param list<string> $headers
      * @return array<string, mixed>
      */
@@ -204,10 +207,13 @@ final class StatusLightsRealSystem implements StatusLightsSystem
         }
         // @codeCoverageIgnoreEnd
         fclose($handle);
+        // @codeCoverageIgnoreStart
+        // Justification: This requires an OS-level write or flush failure after an exclusive file has opened successfully.
         if (!$success) {
             @unlink($path);
             return null;
         }
+        // @codeCoverageIgnoreEnd
         return true;
     }
 
