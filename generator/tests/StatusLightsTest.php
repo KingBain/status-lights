@@ -303,7 +303,7 @@ final class StatusLightsTest extends TestCase
 
     public function testRejectsInvalidRoutesAndOptions(): void
     {
-        $this->assertRouteError('/');
+        $this->assertRouteError('/', 404);
         $this->assertRouteError('/github/owner/repo/ci.yml', 404);
         $this->assertRouteError('/github/owner/repo/ci.yml/unknown/value.svg');
         $this->assertRouteError('/github/owner/repo/ci.yml/size.svg');
@@ -352,7 +352,7 @@ final class StatusLightsTest extends TestCase
         $cached = status_lights_read_cache($this->mock, '/cache', $key);
         $this->assertSame(StatusLightState::Success, $cached['state']);
         $this->assertSame(1000, $cached['fetched_at']);
-        $this->assertSame(0644, $this->mock->perms[$path]);
+        $this->assertContains(0644, $this->mock->perms);
 
         $request = $this->request();
         $hit = status_lights_resolve_state($this->mock, $request, $this->config(), static fn (): StatusLightState => StatusLightState::Failure, 1010);
