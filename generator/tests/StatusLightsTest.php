@@ -1,6 +1,13 @@
 <?php
 declare(strict_types=1);
 
+if (!defined('STATUS_LIGHTS_TESTING')) {
+    define('STATUS_LIGHTS_TESTING', true);
+}
+if (!defined('STATUS_LIGHTS_APP_TESTING')) {
+    define('STATUS_LIGHTS_APP_TESTING', true);
+}
+
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../generator/app.php';
