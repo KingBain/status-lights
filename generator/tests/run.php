@@ -821,6 +821,14 @@ test('covers app storage, signatures, installations, and ignored webhook variant
                 'head_branch' => 'main',
             ],
         ]);
+        status_lights_app_handle_workflow_job([
+            'repository' => $repository,
+            'workflow_job' => [
+                'name' => 'Missing run',
+                'run_id' => 4,
+                'head_branch' => 'main',
+            ],
+        ]);
 
         $request = status_lights_parse_request('/github/owner/repo/flow.yml.svg');
         $unknown = status_lights_app_resolve($request);
