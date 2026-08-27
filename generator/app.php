@@ -472,16 +472,16 @@ function status_lights_app_handle_request(StatusLightsSystem $system, array $ser
     }
 }
 
+// @codeCoverageIgnoreStart
+// Justification: HTTP front-controller execution directly uses the PHP SAPI and terminates the request.
 function status_lights_app_main(): void
 {
     $system = new StatusLightsRealSystem();
     $response = status_lights_app_handle_request($system, $_SERVER);
-
-    // @codeCoverageIgnoreStart
     status_lights_emit_response($response);
     exit;
-    // @codeCoverageIgnoreEnd
 }
+// @codeCoverageIgnoreEnd
 
 if (!defined('STATUS_LIGHTS_APP_TESTING')) {
     // @codeCoverageIgnoreStart
