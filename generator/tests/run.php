@@ -593,7 +593,7 @@ test('returns unknown when the provider has no usable data', static function ():
 });
 
 if (defined('STATUS_LIGHTS_PHPUNIT')) {
-    return $tests;
+    return $GLOBALS['tests'];
 }
 
 $failures = 0;
