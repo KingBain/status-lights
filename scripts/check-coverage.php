@@ -12,11 +12,13 @@ if (!$coverage instanceof SimpleXMLElement || !isset($coverage->project->metrics
 
 $failures = [];
 $metrics = $coverage->project->metrics;
-foreach ([
-    'methods' => 'coveredmethods',
-    'statements' => 'coveredstatements',
-    'elements' => 'coveredelements',
-] as $totalName => $coveredName) {
+foreach (
+    [
+        'methods' => 'coveredmethods',
+        'statements' => 'coveredstatements',
+        'elements' => 'coveredelements',
+    ] as $totalName => $coveredName
+) {
     $total = (int) $metrics[$totalName];
     $covered = (int) $metrics[$coveredName];
     if ($covered !== $total) {
