@@ -124,9 +124,12 @@ final class StatusLightsRealSystem implements StatusLightsSystem
     public function readInput(int $maxBytes): string
     {
         $input = @fopen('php://input', 'rb');
+        // @codeCoverageIgnoreStart
+        // Justification: php://input failing to open is a PHP runtime failure that cannot be induced portably in PHPUnit.
         if (!is_resource($input)) {
             return '';
         }
+        // @codeCoverageIgnoreEnd
         $body = stream_get_contents($input, $maxBytes + 1);
         fclose($input);
         return is_string($body) ? $body : '';
@@ -190,6 +193,8 @@ final class StatusLightsRealSystem implements StatusLightsSystem
         if (!is_resource($handle)) {
             return null;
         }
+        // @codeCoverageIgnoreStart
+        // Justification: A PHP stream write throwing is dependent on a custom or failing system stream and is not portable to PHPUnit.
         try {
             $success = fwrite($handle, $contents) === strlen($contents) && fflush($handle);
         } catch (\Throwable $e) {
@@ -197,6 +202,7 @@ final class StatusLightsRealSystem implements StatusLightsSystem
             @unlink($path);
             throw $e;
         }
+        // @codeCoverageIgnoreEnd
         fclose($handle);
         if (!$success) {
             @unlink($path);
