@@ -2,14 +2,24 @@
 <ruleset name="StatusLights">
     <description>Coding standard for Status Lights</description>
 
-    <!-- Apply the modern PER Coding Standard or PSR-12 -->
-    <rule ref="PSR12"/>
+    <!-- The project deliberately uses global PHP symbols in cohesive, dependency-free scripts. -->
+    <rule ref="PSR12">
+        <exclude name="PSR1.Classes.ClassDeclaration.MissingNamespace"/>
+        <exclude name="PSR1.Classes.ClassDeclaration.MultipleClasses"/>
+        <exclude name="PSR1.Files.SideEffects.FoundWithSymbols"/>
+    </rule>
 
-    <!-- Directories to check -->
+    <!-- Request/response literals and compact fixtures make a fixed line width counterproductive. -->
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="0"/>
+            <property name="absoluteLineLimit" value="0"/>
+        </properties>
+    </rule>
+
     <file>generator</file>
     <file>scripts</file>
 
-    <!-- Ignore generated or cache folders -->
     <exclude-pattern>*/app-data/*</exclude-pattern>
     <exclude-pattern>*/cache/*</exclude-pattern>
 </ruleset>
