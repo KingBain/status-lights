@@ -8,9 +8,15 @@ final class LegacySuiteTest extends TestCase
 {
     public function testExistingUnitSuite(): void
     {
-        require dirname(__DIR__) . '/run.php';
+        $tests = require dirname(__DIR__) . '/run.php';
 
-        $request = status_lights_parse_request('/github/owner/repository/workflow.yml.svg');
-        self::assertSame('owner', $request->owner);
+        foreach ($tests as [$name, $test]) {
+            try {
+                $test();
+                $this->addToAssertionCount(1);
+            } catch (Throwable $exception) {
+                self::fail(sprintf('%s: %s', $name, $exception->getMessage()));
+            }
+        }
     }
 }
