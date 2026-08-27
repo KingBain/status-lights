@@ -382,6 +382,7 @@ function status_lights_map_run_state(array $run): StatusLightState
 /**
  * @param array<string, int|string|null> $config
  */
+// @codeCoverageIgnoreStart -- cURL transport adapter; exercised by smoke tests.
 function status_lights_fetch_state(
     string $owner,
     string $repository,
@@ -430,6 +431,7 @@ function status_lights_fetch_state(
 }
 
 /** @param array<string, mixed> $payload */
+// @codeCoverageIgnoreEnd
 function status_lights_find_job_state(array $payload, string $jobName): StatusLightState
 {
     $jobs = $payload['jobs'] ?? null;
@@ -451,6 +453,7 @@ function status_lights_find_job_state(array $payload, string $jobName): StatusLi
  * @param array<string, int|string|null> $config
  * @return array<string, mixed>
  */
+// @codeCoverageIgnoreStart -- GitHub HTTP transport adapter; exercised by smoke tests.
 function status_lights_fetch_runs(
     string $owner,
     string $repository,
@@ -575,6 +578,7 @@ function status_lights_fetch_github_json(string $url, array $config): array
  * @param callable(string, string, string, string|null): StatusLightState|null $provider
  * @return array{state: StatusLightState, cache_status: string, fetched_at: int}
  */
+// @codeCoverageIgnoreEnd
 function status_lights_resolve_state(
     LightRequest $request,
     array $config,
@@ -850,6 +854,7 @@ function status_lights_escape(string $value): string
 /**
  * @param array{state: StatusLightState, cache_status: string, fetched_at: int}|null $result
  */
+// @codeCoverageIgnoreStart -- process response adapter; it terminates the PHP request.
 function status_lights_send_svg(
     string $body,
     int $statusCode,
@@ -949,6 +954,7 @@ function status_lights_main(): never
     }
 }
 
+// @codeCoverageIgnoreEnd
 if (!defined('STATUS_LIGHTS_TESTING')) {
     status_lights_main();
 }
