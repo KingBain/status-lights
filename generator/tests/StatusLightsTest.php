@@ -436,8 +436,8 @@ final class StatusLightsTest extends TestCase
         $repoKey = status_lights_app_repo_key('OWNER', 'Repo');
         $this->assertSame($repoKey, status_lights_app_key('owner', 'repo'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $repoKey);
-        $this->assertMatchesRegularExpression('/^[1-9][0-9]*$/', StatusLightsAppStoreKind::Runs->keyPattern());
-        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', StatusLightsAppStoreKind::Repositories->keyPattern());
+        $this->assertSame(1, preg_match(StatusLightsAppStoreKind::Runs->keyPattern(), '1'));
+        $this->assertSame(1, preg_match(StatusLightsAppStoreKind::Repositories->keyPattern(), $repoKey));
 
         status_lights_app_write($this->mock, StatusLightsAppStoreKind::Repositories, $repoKey, ['installed' => true]);
         $this->assertSame(['installed' => true], status_lights_app_read($this->mock, StatusLightsAppStoreKind::Repositories, $repoKey));
