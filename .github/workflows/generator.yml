@@ -1,20 +1,26 @@
-name: PHP generator
+name: CI & Tests
 
 on:
   pull_request:
+    branches:
+      - main
     paths:
       - ".cpanel.yml"
-      - ".github/workflows/generator.yml"
+      - ".github/workflows/**"
       - "generator/**"
       - "scripts/**"
+      - "tests/**"
+      - "phpunit.xml"
   push:
     branches:
       - main
     paths:
       - ".cpanel.yml"
-      - ".github/workflows/generator.yml"
+      - ".github/workflows/**"
       - "generator/**"
       - "scripts/**"
+      - "tests/**"
+      - "phpunit.xml"
   workflow_dispatch:
 
 permissions:
@@ -22,28 +28,33 @@ permissions:
 
 jobs:
   test:
-    name: Test with PHP ${{ matrix.php }}
+    name: Test PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         php: ["8.3", "8.4", "8.5"]
+
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-      - name: Set up PHP
+      - name: Set up PHP with PHPUnit & PHPStan
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           extensions: curl, json
-          coverage: none
+          tools: phpunit, phpstan
+          coverage: pcov
 
-      - name: Lint generator
-        run: find generator scripts -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Syntax Lint (php -l)
+        run: find generator scripts tests -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Test generator
-        run: php generator/tests/run.php
+      - name: Static Analysis (PHPStan)
+        run: phpstan analyse generator/ scripts/ --level=6 --no-progress
+
+      - name: Run PHPUnit with Coverage Summary
+        run: phpunit --coverage-text --colors=never
 
       - name: Validate cPanel pull script
         run: bash -n scripts/cpanel-pull-deploy.sh
