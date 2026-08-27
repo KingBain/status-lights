@@ -41,6 +41,7 @@ final readonly class LightRequest
         public string $repository,
         public string $workflow,
         public ?string $job,
+        public string $format,
         public int $height,
         public ?int $width,
         public string $font,
@@ -136,8 +137,8 @@ function status_lights_parse_request(string $requestUri): LightRequest
 
     if (count($rawSegments) < 4 || $rawSegments[0] !== 'github') {
         throw new StatusLightsRouteException(
-            'Expected /github/{owner}/{repository}/{workflow}.svg or '
-                . '/github/{owner}/{repository}/{workflow}/job/{job}.svg.',
+            'Expected /github/{owner}/{repository}/{workflow}.{svg|json} or '
+                . '/github/{owner}/{repository}/{workflow}/job/{job}.{svg|json}.',
             404,
         );
     }
@@ -145,11 +146,13 @@ function status_lights_parse_request(string $requestUri): LightRequest
     $lastIndex = array_key_last($rawSegments);
     $lastSegment = $rawSegments[$lastIndex];
 
-    if (!str_ends_with(strtolower($lastSegment), '.svg')) {
-        throw new StatusLightsRouteException('Status light URLs must end in .svg.', 404);
+    $extension = strtolower(pathinfo($lastSegment, PATHINFO_EXTENSION));
+
+    if (!in_array($extension, ['svg', 'json'], true)) {
+        throw new StatusLightsRouteException('Status light URLs must end in .svg or .json.', 404);
     }
 
-    $rawSegments[$lastIndex] = substr($lastSegment, 0, -4);
+    $rawSegments[$lastIndex] = substr($lastSegment, 0, -(strlen($extension) + 1));
     $segments = array_map('rawurldecode', $rawSegments);
     $owner = $segments[1];
     $repository = status_lights_repository_segment($segments[2]);
@@ -246,6 +249,7 @@ function status_lights_parse_request(string $requestUri): LightRequest
         repository: $repository,
         workflow: $workflow,
         job: $job,
+        format: $extension,
         height: $height,
         width: $width,
         font: $font,
@@ -882,15 +886,45 @@ function status_lights_send_svg(
     exit;
 }
 
-/** @param array<string, mixed> $body */
-function status_lights_send_json(array $body, int $statusCode = 200): never
+/**
+ * @param array<string, mixed> $body
+ * @param array{state: StatusLightState, cache_status: string, fetched_at: int}|null $result
+ */
+function status_lights_send_json(
+    array $body,
+    int $statusCode = 200,
+    ?int $cacheTtl = null,
+    ?array $result = null,
+): never
 {
+    $encodedBody = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $etag = '"' . hash('sha256', $encodedBody) . '"';
+
+    if ($cacheTtl !== null && ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '') === $etag) {
+        http_response_code(304);
+        header('ETag: ' . $etag);
+        exit;
+    }
+
     http_response_code($statusCode);
     header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: no-store');
+    header($cacheTtl === null
+        ? 'Cache-Control: no-store'
+        : sprintf('Cache-Control: public, max-age=%d, stale-if-error=300', $cacheTtl));
+    header('Cross-Origin-Resource-Policy: cross-origin');
     header('Access-Control-Allow-Origin: *');
     header('X-Content-Type-Options: nosniff');
-    echo json_encode($body, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+    if ($cacheTtl !== null) {
+        header('ETag: ' . $etag);
+    }
+
+    if ($result !== null) {
+        header('X-Status-Lights-State: ' . $result['state']->value);
+        header('X-Status-Lights-Cache: ' . $result['cache_status']);
+    }
+
+    echo $encodedBody;
     exit;
 }
 
@@ -927,6 +961,10 @@ function status_lights_main(): never
     try {
         $request = status_lights_parse_request($_SERVER['REQUEST_URI'] ?? '/');
         $result = status_lights_resolve_state($request, $config);
+
+        if ($request->format === 'json') {
+            status_lights_send_json($result, 200, (int) $config['http_cache_ttl'], $result);
+        }
 
         status_lights_send_svg(
             status_lights_render_svg($request, $result),

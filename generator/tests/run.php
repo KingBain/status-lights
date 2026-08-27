@@ -89,9 +89,23 @@ test('parses the canonical route with defaults', static function (): void {
     expectSame('status-lights', $request->repository);
     expectSame('pages.yml', $request->workflow);
     expectSame(null, $request->job);
+    expectSame('svg', $request->format);
     expectSame(40, $request->height);
     expectSame(null, $request->width);
     expectSame('', $request->text);
+});
+
+test('parses JSON routes and preserves their requested format', static function (): void {
+    $workflowRequest = status_lights_parse_request(
+        '/github/KingBain/status-lights/pages.yml.json',
+    );
+    $jobRequest = status_lights_parse_request(
+        '/github/KingBain/status-lights/pages.yml/job/Validate%20site.json',
+    );
+
+    expectSame('json', $workflowRequest->format);
+    expectSame('json', $jobRequest->format);
+    expectSame('Validate site', $jobRequest->job);
 });
 
 test('parses an escaped dot-prefixed repository route', static function (): void {
@@ -152,6 +166,7 @@ test('rejects unsafe or unsupported route options', static function (): void {
     expectRouteFailure('/github/owner/repository/workflow.yml/text/%00.svg');
     expectRouteFailure('/github/owner/repository/workflow.yml/job/.svg');
     expectRouteFailure('/github/owner/repository/workflow.yml/job/%00.svg');
+    expectRouteFailure('/github/owner/repository/workflow.yml.txt');
 });
 
 test('rejects canonical dot segments in route identifiers', static function (): void {
