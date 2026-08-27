@@ -79,6 +79,9 @@ interface StatusLightsSystem
     public function getenv(string $name): string;
     public function time(): int;
     public function readInput(int $maxBytes): string;
+    /**
+     * @phpstan-impure
+     */
     public function isDir(string $path): bool;
     public function isFile(string $path): bool;
     public function isWritable(string $path): bool;
