@@ -701,15 +701,19 @@ function status_lights_write_cache(
             ['state' => $state->value, 'fetched_at' => $fetchedAt],
             JSON_THROW_ON_ERROR,
         );
-    } catch (JsonException) { // @codeCoverageIgnore
+    } catch (JsonException) {
+        // @codeCoverageIgnoreStart
         return;
+        // @codeCoverageIgnoreEnd
     }
 
     $temporaryPath = @tempnam($directory, 'status-light-');
 
-    if (!is_string($temporaryPath)) { // @codeCoverageIgnore
+    // @codeCoverageIgnoreStart
+    if (!is_string($temporaryPath)) {
         return;
     }
+    // @codeCoverageIgnoreEnd
 
     // Defensive failures after temp-file creation cannot be induced portably.
     // @codeCoverageIgnoreStart
