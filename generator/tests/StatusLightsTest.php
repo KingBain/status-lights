@@ -27,6 +27,7 @@ final class MockSystem implements StatusLightsSystem
     /** @var array<string, int|false> */
     public array $mtimes = [];
     public bool $mkdirSucceeds = true;
+    public bool $fileGetSucceeds = true;
     public bool $filePutSucceeds = true;
     public bool $renameSucceeds = true;
     public bool $unlinkSucceeds = true;
@@ -35,6 +36,7 @@ final class MockSystem implements StatusLightsSystem
     public string $createAtomicMode = 'default';
     public bool $extensionIsLoaded = true;
     public ?Throwable $getenvException = null;
+    public ?Throwable $timeException = null;
     public ?Throwable $httpException = null;
     /** @var list<array<string, mixed>> */
     public array $httpResponses = [];
@@ -52,6 +54,9 @@ final class MockSystem implements StatusLightsSystem
 
     public function time(): int
     {
+        if ($this->timeException !== null) {
+            throw $this->timeException;
+        }
         return $this->time;
     }
 
@@ -88,6 +93,9 @@ final class MockSystem implements StatusLightsSystem
 
     public function fileGetContents(string $path): string|false
     {
+        if (!$this->fileGetSucceeds) {
+            return false;
+        }
         return $this->files[$path] ?? false;
     }
 
@@ -687,5 +695,142 @@ final class StatusLightsTest extends TestCase
         $this->assertTrue($real->unlink($directory . '/atomic.txt'));
         $this->assertTrue($real->unlink($directory . '/data.json'));
         $this->assertTrue(rmdir($directory));
+    }
+
+    public function testCoversAppStoreAndWebhookFailureBranches(): void
+    {
+        $key = status_lights_app_key('delete-failure');
+        $path = status_lights_app_record_path($this->mock, StatusLightsAppStoreKind::Statuses, $key);
+        $this->mock->files[$path] = '{}';
+        $this->mock->unlinkSucceeds = false;
+        try {
+            status_lights_app_delete($this->mock, StatusLightsAppStoreKind::Statuses, $key);
+            self::fail('Expected deletion to fail.');
+        } catch (RuntimeException) {
+            self::assertTrue(true);
+        }
+
+        $this->mock->unlinkSucceeds = true;
+        $this->mock->fileGetSucceeds = false;
+        $this->assertNull(status_lights_app_read($this->mock, StatusLightsAppStoreKind::Statuses, $key));
+        $this->mock->fileGetSucceeds = true;
+
+        $this->mock->input = '{}';
+        $server = $this->signedServer('ping', '72d3162e-cc78-11e3-81ab-4c9367dc0970', '{}');
+        $server['CONTENT_LENGTH'] = '1048577';
+        $this->assertSame(413, status_lights_app_handle_webhook($this->mock, $server)->statusCode);
+
+        $this->mock->env['STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET'] = '';
+        $this->assertFalse(status_lights_app_verify_signature($this->mock, '{}', []));
+        $this->mock->env['STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET'] = 'secret';
+
+        $before = $this->mock->files;
+        status_lights_app_mark_repository($this->mock, ['name' => 'repo'], 1, true);
+        $this->assertSame($before, $this->mock->files);
+
+        $repository = ['owner' => ['login' => 'owner'], 'name' => 'repo', 'default_branch' => 'main'];
+        status_lights_app_handle_installation($this->mock, 'installation_repositories', [
+            'installation' => ['id' => 1],
+            'repositories_added' => [$repository],
+            'repositories_removed' => [],
+        ]);
+        $record = status_lights_app_read($this->mock, StatusLightsAppStoreKind::Repositories, status_lights_app_repo_key('owner', 'repo'));
+        $this->assertTrue($record['installed']);
+
+        status_lights_app_handle_workflow_run($this->mock, []);
+        status_lights_app_handle_workflow_run($this->mock, ['repository' => $repository, 'workflow_run' => ['id' => 0, 'path' => 'ci.yml']]);
+        status_lights_app_handle_workflow_run($this->mock, ['repository' => $repository, 'workflow_run' => ['id' => 2, 'path' => 'ci.yml', 'head_branch' => 'other']]);
+        status_lights_app_handle_workflow_job($this->mock, []);
+        status_lights_app_handle_workflow_job($this->mock, ['repository' => $repository, 'workflow_job' => ['run_id' => 0, 'name' => 'Build']]);
+        status_lights_app_handle_workflow_job($this->mock, ['repository' => $repository, 'workflow_job' => ['run_id' => 2, 'name' => 'Build', 'head_branch' => 'other']]);
+        status_lights_app_handle_workflow_job($this->mock, ['repository' => $repository, 'workflow_job' => ['run_id' => 999, 'name' => 'Build', 'head_branch' => 'main']]);
+
+        $this->mock->createAtomicMode = 'throw';
+        $this->mock->input = '{}';
+        $this->assertSame(500, status_lights_app_handle_webhook($this->mock, $this->signedServer('ping', '72d3162e-cc78-11e3-81ab-4c9367dc0971', '{}'))->statusCode);
+        $this->mock->createAtomicMode = 'default';
+
+        $installationPayload = json_encode(['action' => 'created', 'installation' => ['id' => 1], 'repositories' => [$repository]], JSON_THROW_ON_ERROR);
+        $this->mock->input = $installationPayload;
+        $this->assertSame(202, status_lights_app_handle_webhook($this->mock, $this->signedServer('installation', '72d3162e-cc78-11e3-81ab-4c9367dc0972', $installationPayload))->statusCode);
+
+        $workflowPayload = json_encode(['repository' => $repository, 'workflow_run' => ['id' => 4, 'path' => 'ci.yml', 'head_branch' => 'main', 'status' => 'completed', 'conclusion' => 'success']], JSON_THROW_ON_ERROR);
+        $this->mock->filePutSucceeds = false;
+        $this->mock->unlinkSucceeds = false;
+        $this->mock->input = $workflowPayload;
+        $this->assertSame(500, status_lights_app_handle_webhook($this->mock, $this->signedServer('workflow_run', '72d3162e-cc78-11e3-81ab-4c9367dc0973', $workflowPayload))->statusCode);
+
+        $this->mock->filePutSucceeds = true;
+        $this->mock->unlinkSucceeds = true;
+        $this->mock->input = '{}';
+        $this->assertSame(200, status_lights_app_handle_request($this->mock, $this->signedServer('ping', '72d3162e-cc78-11e3-81ab-4c9367dc0974', '{}'))->statusCode);
+    }
+
+    public function testCoversRemainingCoreBranches(): void
+    {
+        $this->assertRouteError('http://[::1');
+        try {
+            status_lights_job_option("\xFF");
+            self::fail('Expected invalid UTF-8 job name to fail.');
+        } catch (StatusLightsRouteException) {
+            self::assertTrue(true);
+        }
+        try {
+            status_lights_job_option("Build\x00");
+            self::fail('Expected control character job name to fail.');
+        } catch (StatusLightsRouteException) {
+            self::assertTrue(true);
+        }
+        try {
+            status_lights_text_option("\xFF");
+            self::fail('Expected invalid UTF-8 text to fail.');
+        } catch (StatusLightsRouteException) {
+            self::assertTrue(true);
+        }
+
+        $this->mock->httpResponses = [
+            ['workflow_runs' => [[
+                'repository' => ['default_branch' => 'main'],
+                'head_branch' => 'feature',
+                'status' => 'completed',
+                'conclusion' => 'success',
+            ]]],
+            ['workflow_runs' => []],
+        ];
+        $this->assertSame(StatusLightState::Unknown, status_lights_fetch_state($this->mock, 'owner', 'repo', 'ci.yml', $this->config()));
+
+        $this->mock->httpResponses = [[
+            'workflow_runs' => [[
+                'repository' => ['default_branch' => 'main'],
+                'head_branch' => 'main',
+                'status' => 'completed',
+                'conclusion' => 'success',
+            ]],
+        ]];
+        $this->assertSame(StatusLightState::Success, status_lights_fetch_state($this->mock, 'owner', 'repo', 'ci.yml', $this->config()));
+
+        $this->mock->httpResponses = [[
+            'workflow_runs' => [[
+                'repository' => ['default_branch' => 'main'],
+                'head_branch' => 'main',
+                'status' => 'completed',
+                'conclusion' => 'success',
+            ]],
+        ]];
+        $this->assertSame(StatusLightState::Unknown, status_lights_fetch_state($this->mock, 'owner', 'repo', 'ci.yml', $this->config(), 'Build'));
+
+        $cachePath = status_lights_cache_path('/cache', 'file-get-failure');
+        $this->mock->files[$cachePath] = '{"state":"success","fetched_at":1}';
+        $this->mock->fileGetSucceeds = false;
+        $this->assertNull(status_lights_read_cache($this->mock, '/cache', 'file-get-failure'));
+        $this->mock->fileGetSucceeds = true;
+        $this->mock->files[$cachePath] = '[]';
+        $this->assertNull(status_lights_read_cache($this->mock, '/cache', 'file-get-failure'));
+
+        $this->mock->httpResponses = [['workflow_runs' => [['status' => 'completed', 'conclusion' => 'success']]]];
+        $this->assertSame(200, status_lights_handle_legacy_request($this->mock, ['REQUEST_URI' => '/github/owner/repo/ci.yml.svg'])->statusCode);
+
+        $this->mock->timeException = new RuntimeException('clock unavailable');
+        $this->assertSame(500, status_lights_handle_legacy_request($this->mock, ['REQUEST_URI' => '/github/owner/repo/ci.yml.svg'])->statusCode);
     }
 }
