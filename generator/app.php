@@ -186,13 +186,13 @@ function status_lights_app_prune_records_older_than(
         return 0;
     }
 
+    // @codeCoverageIgnoreStart
     try {
         $files = new FilesystemIterator($directory, FilesystemIterator::SKIP_DOTS);
     } catch (UnexpectedValueException) {
-        // @codeCoverageIgnoreStart
         return 0;
-        // @codeCoverageIgnoreEnd
     }
+    // @codeCoverageIgnoreEnd
 
     $deleted = 0;
 
