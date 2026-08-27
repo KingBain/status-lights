@@ -2,9 +2,13 @@
 
 declare(strict_types=1);
 
-define('STATUS_LIGHTS_TESTING', true);
-define('STATUS_LIGHTS_APP_TESTING', true);
-require dirname(__DIR__) . '/app.php';
+if (!defined('STATUS_LIGHTS_TESTING')) {
+    define('STATUS_LIGHTS_TESTING', true);
+}
+if (!defined('STATUS_LIGHTS_APP_TESTING')) {
+    define('STATUS_LIGHTS_APP_TESTING', true);
+}
+require_once dirname(__DIR__) . '/app.php';
 
 $tests = [];
 
