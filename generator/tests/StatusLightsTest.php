@@ -675,5 +675,4 @@ test('covers remaining core branches', function (): void {
 
     $mock->timeException = new RuntimeException('clock unavailable');
     expect(status_lights_handle_legacy_request($mock, ['REQUEST_URI' => '/github/owner/repo/ci.yml.svg'])->statusCode)->toBe(500);
-    }
 });
