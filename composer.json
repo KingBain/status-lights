@@ -11,7 +11,7 @@
     "scripts": {
         "test": "php generator/tests/run.php",
         "coverage": [
-            "@php -d xdebug.mode=coverage vendor/bin/phpunit --coverage-clover build/coverage/clover.xml --coverage-text",
+            "@php -d xdebug.mode=coverage vendor/bin/phpunit --coverage-clover build/coverage/clover.xml --coverage-text --show-uncovered-for-coverage-text",
             "@php scripts/assert-coverage.php build/coverage/clover.xml"
         ]
     },
