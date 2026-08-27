@@ -1,49 +1,72 @@
-name: PHP generator
+name: CI & Tests
 
 on:
   pull_request:
+    branches:
+      - main
     paths:
       - ".cpanel.yml"
-      - ".github/workflows/generator.yml"
+      - ".github/workflows/**"
+      - "composer.json"
       - "generator/**"
       - "scripts/**"
+      - "phpunit.xml"
   push:
     branches:
       - main
     paths:
       - ".cpanel.yml"
-      - ".github/workflows/generator.yml"
+      - ".github/workflows/**"
+      - "composer.json"
       - "generator/**"
       - "scripts/**"
+      - "phpunit.xml"
   workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
   test:
-    name: Test with PHP ${{ matrix.php }}
+    name: Test PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         php: ["8.3", "8.4", "8.5"]
+
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-      - name: Set up PHP
+      - name: Set up PHP with Composer
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           extensions: curl, json
-          coverage: none
+          tools: composer
+          coverage: pcov
 
-      - name: Lint generator
+      - name: Install test dependencies
+        run: composer update --no-interaction --prefer-dist --no-progress
+
+      - name: Syntax Lint (php -l)
         run: find generator scripts -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Test generator
-        run: php generator/tests/run.php
+      - name: Run Pest with Coverage Summary
+        run: vendor/bin/pest --configuration=phpunit.xml --coverage-text --coverage-clover clover.xml --colors=never
+
+      - name: Enforce 100% coverage
+        run: php scripts/check-coverage.php clover.xml
+
+      - name: Upload Coverage to Coveralls
+        if: matrix.php == '8.4'
+        uses: coverallsapp/github-action@v2
+        with:
+          file: clover.xml
+          format: clover
 
       - name: Validate cPanel pull script
         run: bash -n scripts/cpanel-pull-deploy.sh

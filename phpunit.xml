@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.0/phpunit.xsd"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         displayDetailsOnTestsThatTriggerWarnings="true">
+    <testsuites>
+        <testsuite name="Status Lights Test Suite">
+            <directory>generator/tests</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <file>generator/core.php</file>
+            <file>generator/app.php</file>
+        </include>
+    </source>
+</phpunit>

@@ -1,0 +1,11 @@
+parameters:
+    level: 6
+
+    paths:
+        - generator
+        - scripts
+
+    # Exclude runtime storage directories
+    excludePaths:
+        - generator/app-data/*
+        - generator/cache/*
