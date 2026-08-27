@@ -466,7 +466,8 @@ function status_lights_app_handle_workflow_job(array $payload): void
     );
 }
 
-// @codeCoverageIgnoreStart -- process response adapter; it terminates the PHP request.
+// Process response adapter; it terminates the PHP request.
+// @codeCoverageIgnoreStart
 function status_lights_app_handle_webhook(): never
 {
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -586,7 +587,8 @@ function status_lights_app_resolve(LightRequest $request): array
     ];
 }
 
-// @codeCoverageIgnoreStart -- front controller; exercised by endpoint smoke tests.
+// Front controller; exercised by endpoint smoke tests.
+// @codeCoverageIgnoreStart
 function status_lights_app_main(): never
 {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
