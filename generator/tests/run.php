@@ -592,6 +592,240 @@ test('returns unknown when the provider has no usable data', static function ():
     rmdir($directory);
 });
 
+test('covers configuration and validation boundaries', static function (): void {
+    $names = [
+        'STATUS_LIGHTS_GITHUB_TOKEN',
+        'GITHUB_TOKEN',
+        'STATUS_LIGHTS_CACHE_DIR',
+        'STATUS_LIGHTS_CACHE_TTL',
+        'STATUS_LIGHTS_STALE_TTL',
+        'STATUS_LIGHTS_HTTP_CACHE_TTL',
+        'STATUS_LIGHTS_GITHUB_TIMEOUT',
+    ];
+
+    try {
+        foreach ($names as $name) {
+            putenv($name);
+        }
+        expectSame(null, status_lights_config()['github_token']);
+
+        putenv('GITHUB_TOKEN=fallback-token');
+        putenv('STATUS_LIGHTS_CACHE_TTL=invalid');
+        putenv('STATUS_LIGHTS_STALE_TTL=999999');
+        putenv('STATUS_LIGHTS_HTTP_CACHE_TTL=-5');
+        putenv('STATUS_LIGHTS_GITHUB_TIMEOUT=99');
+        $config = status_lights_config();
+        expectSame('fallback-token', $config['github_token']);
+        expectSame(60, $config['cache_ttl']);
+        expectSame(86400, $config['stale_ttl']);
+        expectSame(0, $config['http_cache_ttl']);
+        expectSame(30, $config['github_timeout']);
+
+        putenv('STATUS_LIGHTS_GITHUB_TOKEN=primary-token');
+        expectSame('primary-token', status_lights_config()['github_token']);
+    } finally {
+        foreach ($names as $name) {
+            putenv($name);
+        }
+    }
+
+    $invalidRoutes = [
+        'http://[',
+        '/' . str_repeat('a', 2049),
+        '/wrong/owner/repository/workflow.svg',
+        '/github/owner/repository/workflow.yml',
+        '/github/owner/repository/workflow.yml/size.svg',
+        '/github/owner/repository/workflow.yml/size/40/size/40.svg',
+        '/github/owner/repository/workflow.yml/font/comic.svg',
+        '/github/owner/repository/workflow.yml/success-color/nope.svg',
+        '/github/owner/repository/workflow.yml/text/' . rawurlencode(str_repeat('x', 81)) . '.svg',
+        '/github/owner/repository/workflow.yml/job/' . rawurlencode(str_repeat('x', 101)) . '.svg',
+        '/github/owner/repository/workflow.yml/text/%C3%28.svg',
+        '/github/owner/repository/workflow.yml/job/%C3%28.svg',
+    ];
+    foreach ($invalidRoutes as $route) {
+        expectRouteFailure($route);
+    }
+
+    $request = status_lights_parse_request(
+        '/github/owner/repository/workflow.yml/width/120/font/serif.svg',
+    );
+    expectSame(120, $request->width);
+    expectSame('serif', $request->font);
+});
+
+test('covers cache corruption and rendering helpers', static function (): void {
+    $directory = sys_get_temp_dir() . '/status-lights-cache-tests-' . bin2hex(random_bytes(6));
+    mkdir($directory, 0700, true);
+    $key = 'owner/repository/workflow.yml';
+    $path = status_lights_cache_path($directory, $key);
+
+    try {
+        expectSame(null, status_lights_read_cache($directory, $key));
+        file_put_contents($path, '{');
+        expectSame(null, status_lights_read_cache($directory, $key));
+        file_put_contents($path, '[]');
+        expectSame(null, status_lights_read_cache($directory, $key));
+        file_put_contents($path, '{"state":"not-a-state","fetched_at":1}');
+        expectSame(null, status_lights_read_cache($directory, $key));
+
+        $config = [
+            'cache_directory' => $directory,
+            'cache_ttl' => 60,
+            'stale_ttl' => 3600,
+            'http_cache_ttl' => 60,
+            'github_timeout' => 5,
+            'github_token' => null,
+        ];
+        $provider = static fn (): string => 'unsupported';
+        $result = status_lights_resolve_state(requestFixture(), $config, $provider, 1000);
+        expectSame(StatusLightState::Unknown, $result['state']);
+
+        $notDirectory = $directory . '/file';
+        file_put_contents($notDirectory, 'x');
+        status_lights_write_cache($notDirectory, $key, StatusLightState::Success, 1);
+
+        expect(str_contains(status_lights_render_error('<unsafe>'), '&lt;unsafe&gt;'));
+        expectSame(40, status_lights_automatic_width('', 40, 16));
+        expectSame('#000000', status_lights_contrast_color('ffffff'));
+        expectSame('#ffffff', status_lights_contrast_color('000000'));
+    } finally {
+        removeTestDirectory($directory);
+    }
+});
+
+test('covers app storage, signatures, installations, and ignored webhook variants', static function (): void {
+    $directory = sys_get_temp_dir() . '/status-lights-app-coverage-' . bin2hex(random_bytes(6));
+    putenv('STATUS_LIGHTS_APP_STORE_DIR=' . $directory);
+    $previousSignature = $_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? null;
+    $previousLength = $_SERVER['CONTENT_LENGTH'] ?? null;
+
+    try {
+        expectSame(null, status_lights_app_read(StatusLightsAppStoreKind::Runs, '999'));
+        expectSame(0, status_lights_app_prune_runs_older_than(100));
+        expectThrows(
+            InvalidArgumentException::class,
+            static fn (): int => status_lights_app_prune_records_older_than(
+                StatusLightsAppStoreKind::Statuses,
+                100,
+            ),
+        );
+
+        status_lights_app_write(StatusLightsAppStoreKind::Runs, '999', ['ok' => true]);
+        expectSame(['ok' => true], status_lights_app_read(StatusLightsAppStoreKind::Runs, '999'));
+        file_put_contents($directory . '/runs/999.json', '{');
+        expectSame(null, status_lights_app_read(StatusLightsAppStoreKind::Runs, '999'));
+        file_put_contents($directory . '/runs/999.json', '"scalar"');
+        expectSame(null, status_lights_app_read(StatusLightsAppStoreKind::Runs, '999'));
+        status_lights_app_delete(StatusLightsAppStoreKind::Runs, '999');
+
+        putenv('STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET');
+        unset($_SERVER['HTTP_X_HUB_SIGNATURE_256']);
+        expect(!status_lights_app_verify_signature('body'));
+        putenv('STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET=secret');
+        $_SERVER['HTTP_X_HUB_SIGNATURE_256'] = 'sha256=' . hash_hmac('sha256', 'body', 'secret');
+        expect(status_lights_app_verify_signature('body'));
+        $_SERVER['HTTP_X_HUB_SIGNATURE_256'] = [];
+        expect(!status_lights_app_verify_signature('body'));
+
+        unset($_SERVER['CONTENT_LENGTH']);
+        expectSame('', status_lights_app_read_webhook_body());
+        expectThrows(
+            RuntimeException::class,
+            static fn (): string => status_lights_app_read_webhook_body(false),
+        );
+        $stream = fopen('php://temp', 'w+b');
+        fwrite($stream, str_repeat('x', 65537));
+        rewind($stream);
+        putenv('STATUS_LIGHTS_MAX_WEBHOOK_BYTES=65536');
+        expectThrows(
+            StatusLightsPayloadTooLargeException::class,
+            static fn (): string => status_lights_app_read_webhook_body($stream),
+        );
+        fclose($stream);
+
+        expectSame(null, status_lights_app_normalize_delivery_id(1));
+        expectThrows(
+            InvalidArgumentException::class,
+            static fn (): string => status_lights_app_delivery_key('invalid'),
+        );
+        expect(
+            status_lights_app_status_key('Owner', 'Repo', 'flow.yml')
+                !== status_lights_app_status_key('Owner', 'Repo', 'flow.yml', 'Job'),
+        );
+
+        status_lights_app_mark_repository([], null, true);
+        $repository = [
+            'name' => 'repo',
+            'default_branch' => 'main',
+            'owner' => ['login' => 'owner'],
+        ];
+        status_lights_app_handle_installation('installation', [
+            'action' => 'suspend',
+            'installation' => ['id' => 1],
+            'repositories' => [$repository, 'invalid'],
+        ]);
+        status_lights_app_handle_installation('installation_repositories', [
+            'installation' => ['id' => 1],
+            'repositories_added' => [$repository, 'invalid'],
+            'repositories_removed' => [$repository, 'invalid'],
+        ]);
+
+        status_lights_app_handle_workflow_run([]);
+        status_lights_app_handle_workflow_run(['repository' => [], 'workflow_run' => []]);
+        status_lights_app_handle_workflow_run([
+            'repository' => $repository,
+            'workflow_run' => [
+                'id' => 2,
+                'path' => '.github/workflows/flow.yml',
+                'head_branch' => 'feature',
+            ],
+        ]);
+
+        status_lights_app_handle_workflow_job([]);
+        status_lights_app_handle_workflow_job(['repository' => [], 'workflow_job' => []]);
+        status_lights_app_handle_workflow_job([
+            'repository' => $repository,
+            'workflow_job' => [
+                'name' => 'Job',
+                'run_id' => 2,
+                'head_branch' => 'feature',
+            ],
+        ]);
+        status_lights_app_handle_workflow_job([
+            'repository' => $repository,
+            'workflow_job' => [
+                'name' => 'Job',
+                'run_id' => 3,
+                'head_branch' => 'main',
+            ],
+        ]);
+
+        $request = status_lights_parse_request('/github/owner/repo/flow.yml.svg');
+        $unknown = status_lights_app_resolve($request);
+        expectSame(StatusLightState::Unknown, $unknown['state']);
+        expectSame('not-installed', $unknown['cache_status']);
+        status_lights_app_mark_repository($repository, 1, true);
+        $empty = status_lights_app_resolve($request);
+        expectSame('app-empty', $empty['cache_status']);
+    } finally {
+        putenv('STATUS_LIGHTS_APP_STORE_DIR');
+        putenv('STATUS_LIGHTS_GITHUB_WEBHOOK_SECRET');
+        putenv('STATUS_LIGHTS_MAX_WEBHOOK_BYTES');
+        if ($previousSignature === null) {
+            unset($_SERVER['HTTP_X_HUB_SIGNATURE_256']);
+        } else {
+            $_SERVER['HTTP_X_HUB_SIGNATURE_256'] = $previousSignature;
+        }
+        if ($previousLength === null) {
+            unset($_SERVER['CONTENT_LENGTH']);
+        } else {
+            $_SERVER['CONTENT_LENGTH'] = $previousLength;
+        }
+        removeTestDirectory($directory);
+    }
+});
+
 if (defined('STATUS_LIGHTS_PHPUNIT')) {
     return $GLOBALS['tests'];
 }
