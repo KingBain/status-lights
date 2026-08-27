@@ -382,7 +382,7 @@ function status_lights_map_run_state(array $run): StatusLightState
 /**
  * @param array<string, int|string|null> $config
  */
-// CURL transport adapter; exercised by smoke tests.
+// cURL transport adapter; exercised by smoke tests.
 // @codeCoverageIgnoreStart
 function status_lights_fetch_state(
     string $owner,
@@ -611,12 +611,15 @@ function status_lights_resolve_state(
         ];
     }
 
+    // Default-provider wiring is part of the GitHub transport adapter.
+    // @codeCoverageIgnoreStart
     $provider ??= static fn (
         string $owner,
         string $repository,
         string $workflow,
         ?string $job,
     ): StatusLightState => status_lights_fetch_state($owner, $repository, $workflow, $config, $job);
+    // @codeCoverageIgnoreEnd
 
     try {
         $state = $provider(
@@ -661,9 +664,12 @@ function status_lights_read_cache(string $directory, string $key): ?array
 
     $contents = @file_get_contents($path);
 
+    // Defensive filesystem failure; normal, missing, and corrupt files are unit tested.
+    // @codeCoverageIgnoreStart
     if (!is_string($contents)) {
         return null;
     }
+    // @codeCoverageIgnoreEnd
 
     try {
         $value = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
@@ -695,16 +701,18 @@ function status_lights_write_cache(
             ['state' => $state->value, 'fetched_at' => $fetchedAt],
             JSON_THROW_ON_ERROR,
         );
-    } catch (JsonException) {
+    } catch (JsonException) { // @codeCoverageIgnore
         return;
     }
 
     $temporaryPath = @tempnam($directory, 'status-light-');
 
-    if (!is_string($temporaryPath)) {
+    if (!is_string($temporaryPath)) { // @codeCoverageIgnore
         return;
     }
 
+    // Defensive failures after temp-file creation cannot be induced portably.
+    // @codeCoverageIgnoreStart
     if (@file_put_contents($temporaryPath, $contents, LOCK_EX) === false) {
         @unlink($temporaryPath);
         return;
@@ -715,6 +723,7 @@ function status_lights_write_cache(
     if (!@rename($temporaryPath, status_lights_cache_path($directory, $key))) {
         @unlink($temporaryPath);
     }
+    // @codeCoverageIgnoreEnd
 }
 
 function status_lights_cache_path(string $directory, string $key): string
