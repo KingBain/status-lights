@@ -696,16 +696,17 @@ function status_lights_write_cache(
         return;
     }
 
+    // json_encode cannot fail for this fixed enum/string/integer payload.
+    // @codeCoverageIgnoreStart
     try {
         $contents = json_encode(
             ['state' => $state->value, 'fetched_at' => $fetchedAt],
             JSON_THROW_ON_ERROR,
         );
     } catch (JsonException) {
-        // @codeCoverageIgnoreStart
         return;
-        // @codeCoverageIgnoreEnd
     }
+    // @codeCoverageIgnoreEnd
 
     $temporaryPath = @tempnam($directory, 'status-light-');
 
