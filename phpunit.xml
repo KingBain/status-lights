@@ -12,7 +12,7 @@
     </testsuites>
     <source>
         <include>
-            <file>generator/index.php</file>
+            <file>generator/core.php</file>
             <file>generator/app.php</file>
         </include>
     </source>
