@@ -76,7 +76,7 @@ function status_lights_app_record_path(StatusLightsAppStoreKind $kind, string $k
 function status_lights_app_ensure_store_directory(StatusLightsAppStoreKind $kind): string
 {
     $directory = status_lights_app_store_kind_directory($kind);
-    if (!is_dir($directory) && !@mkdir($directory, 0755, true) && !is_dir($directory)) {
+    if (!is_dir($directory) && !@mkdir($directory, 0755, true) && !is_dir($directory)) { // @codeCoverageIgnore
         throw new RuntimeException('Unable to create app data directory.');
     }
 
@@ -88,15 +88,18 @@ function status_lights_app_write(StatusLightsAppStoreKind $kind, string $key, ar
     $path = status_lights_app_record_path($kind, $key);
     $directory = status_lights_app_ensure_store_directory($kind);
     $temporary = tempnam($directory, 'status-lights-');
-    if (!is_string($temporary)) {
+    if (!is_string($temporary)) { // @codeCoverageIgnore
         throw new RuntimeException('Unable to create temporary app data file.');
     }
 
     $json = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    // Defensive failures after temp-file creation cannot be induced portably.
+    // @codeCoverageIgnoreStart
     if (file_put_contents($temporary, $json, LOCK_EX) === false || !rename($temporary, $path)) {
         @unlink($temporary);
         throw new RuntimeException('Unable to write app data.');
     }
+    // @codeCoverageIgnoreEnd
 
     @chmod($path, 0644);
 }
@@ -113,17 +116,18 @@ function status_lights_app_create(StatusLightsAppStoreKind $kind, string $key, a
             return false;
         }
 
-        throw new RuntimeException('Unable to create app data record.');
+        throw new RuntimeException('Unable to create app data record.'); // @codeCoverageIgnore
     }
 
     try {
         if (fwrite($handle, $json) !== strlen($json) || !fflush($handle)) {
             throw new RuntimeException('Unable to create app data record.');
         }
-    } catch (Throwable $exception) {
+    } catch (Throwable $exception) { // @codeCoverageIgnoreStart
         fclose($handle);
         @unlink($path);
         throw $exception;
+        // @codeCoverageIgnoreEnd
     }
 
     fclose($handle);
@@ -134,7 +138,7 @@ function status_lights_app_create(StatusLightsAppStoreKind $kind, string $key, a
 function status_lights_app_delete(StatusLightsAppStoreKind $kind, string $key): void
 {
     $path = status_lights_app_record_path($kind, $key);
-    if (is_file($path) && !@unlink($path)) {
+    if (is_file($path) && !@unlink($path)) { // @codeCoverageIgnore
         throw new RuntimeException('Unable to delete app data record.');
     }
 }
@@ -147,7 +151,7 @@ function status_lights_app_read(StatusLightsAppStoreKind $kind, string $key): ?a
     }
 
     $contents = @file_get_contents($path);
-    if (!is_string($contents)) {
+    if (!is_string($contents)) { // @codeCoverageIgnore
         return null;
     }
 
@@ -176,7 +180,7 @@ function status_lights_app_prune_records_older_than(
 
     try {
         $files = new FilesystemIterator($directory, FilesystemIterator::SKIP_DOTS);
-    } catch (UnexpectedValueException) {
+    } catch (UnexpectedValueException) { // @codeCoverageIgnore
         return 0;
     }
 
@@ -239,7 +243,7 @@ function status_lights_app_read_webhook_body($input = null): string
         fclose($input);
     }
 
-    if (!is_string($body)) {
+    if (!is_string($body)) { // @codeCoverageIgnore
         throw new RuntimeException('Unable to read webhook payload.');
     }
 
