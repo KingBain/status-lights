@@ -72,6 +72,7 @@ function status_lights_app_ensure_store_directory(StatusLightsSystem $system, St
     return $directory;
 }
 
+/** @param array<string, mixed> $value */
 function status_lights_app_write(StatusLightsSystem $system, StatusLightsAppStoreKind $kind, string $key, array $value): void
 {
     $path = status_lights_app_record_path($system, $kind, $key);
@@ -87,6 +88,7 @@ function status_lights_app_write(StatusLightsSystem $system, StatusLightsAppStor
     $system->chmod($path, 0644);
 }
 
+/** @param array<string, mixed> $value */
 function status_lights_app_create(StatusLightsSystem $system, StatusLightsAppStoreKind $kind, string $key, array $value): bool
 {
     $path = status_lights_app_record_path($system, $kind, $key);
@@ -109,6 +111,7 @@ function status_lights_app_delete(StatusLightsSystem $system, StatusLightsAppSto
     }
 }
 
+/** @return array<string, mixed>|null */
 function status_lights_app_read(StatusLightsSystem $system, StatusLightsAppStoreKind $kind, string $key): ?array
 {
     $path = status_lights_app_record_path($system, $kind, $key);
@@ -144,6 +147,7 @@ function status_lights_app_prune_records_older_than(StatusLightsAppStoreKind $ki
 function status_lights_app_prune_runs_older_than(int $cutoff, ?StatusLightsSystem $system = null): int { return status_lights_app_prune_records_older_than(StatusLightsAppStoreKind::Runs, $cutoff, $system); }
 function status_lights_app_prune_deliveries_older_than(int $cutoff, ?StatusLightsSystem $system = null): int { return status_lights_app_prune_records_older_than(StatusLightsAppStoreKind::Deliveries, $cutoff, $system); }
 
+/** @param array<string, mixed> $server */
 function status_lights_app_read_webhook_body(StatusLightsSystem $system, array $server): string
 {
     $maximumBytes = status_lights_app_max_webhook_bytes($system);
@@ -192,6 +196,7 @@ function status_lights_app_release_delivery(StatusLightsSystem $system, string $
     status_lights_app_delete($system, StatusLightsAppStoreKind::Deliveries, status_lights_app_delivery_key($deliveryId));
 }
 
+/** @param array<string, mixed> $server */
 function status_lights_app_verify_signature(StatusLightsSystem $system, string $body, array $server): bool
 {
     $secret = status_lights_app_webhook_secret($system);
@@ -200,6 +205,7 @@ function status_lights_app_verify_signature(StatusLightsSystem $system, string $
     return hash_equals('sha256=' . hash_hmac('sha256', $body, $secret), $signature);
 }
 
+/** @param array<string, mixed> $repository */
 function status_lights_app_mark_repository(StatusLightsSystem $system, array $repository, ?int $installationId, bool $installed): void
 {
     $owner = $repository['owner']['login'] ?? null;
@@ -212,6 +218,7 @@ function status_lights_app_mark_repository(StatusLightsSystem $system, array $re
     ]);
 }
 
+/** @param array<string, mixed> $payload */
 function status_lights_app_handle_installation(StatusLightsSystem $system, string $event, array $payload): void
 {
     $action = (string) ($payload['action'] ?? '');
@@ -238,6 +245,7 @@ function status_lights_app_handle_installation(StatusLightsSystem $system, strin
     }
 }
 
+/** @param array<string, mixed> $payload */
 function status_lights_app_handle_workflow_run(StatusLightsSystem $system, array $payload): void
 {
     $repository = $payload['repository'] ?? null;
@@ -263,6 +271,7 @@ function status_lights_app_handle_workflow_run(StatusLightsSystem $system, array
     status_lights_app_mark_repository($system, $repository, is_int($payload['installation']['id'] ?? null) ? $payload['installation']['id'] : null, true);
 }
 
+/** @param array<string, mixed> $payload */
 function status_lights_app_handle_workflow_job(StatusLightsSystem $system, array $payload): void
 {
     $repository = $payload['repository'] ?? null;
@@ -286,6 +295,7 @@ function status_lights_app_handle_workflow_job(StatusLightsSystem $system, array
     status_lights_app_write($system, StatusLightsAppStoreKind::Statuses, status_lights_app_status_key($owner, $name, $workflow, $jobName), ['state' => status_lights_map_run_state($job)->value, 'updated_at' => $system->time(), 'run_id' => $runId]);
 }
 
+/** @param array<string, mixed> $server */
 function status_lights_app_handle_webhook(StatusLightsSystem $system, array $server): StatusLightsResponse
 {
     if (($server['REQUEST_METHOD'] ?? 'GET') !== 'POST') return status_lights_create_json_response(['error' => 'Method not allowed'], 405);
@@ -332,6 +342,7 @@ function status_lights_app_handle_webhook(StatusLightsSystem $system, array $ser
     return status_lights_create_json_response(['status' => 'accepted', 'event' => $event], 202);
 }
 
+/** @return array{state: StatusLightState, cache_status: string, fetched_at: int} */
 function status_lights_app_resolve(StatusLightsSystem $system, LightRequest $request): array
 {
     $repo = status_lights_app_read($system, StatusLightsAppStoreKind::Repositories, status_lights_app_repo_key($request->owner, $request->repository));
@@ -345,6 +356,7 @@ function status_lights_app_resolve(StatusLightsSystem $system, LightRequest $req
     return ['state' => $state, 'cache_status' => 'webhook', 'fetched_at' => is_int($status['updated_at'] ?? null) ? $status['updated_at'] : $system->time()];
 }
 
+/** @param array<string, mixed> $server */
 function status_lights_app_handle_request(StatusLightsSystem $system, array $server): StatusLightsResponse {
     $path = parse_url($server['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 
