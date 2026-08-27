@@ -847,7 +847,3 @@ function status_lights_emit_response(StatusLightsResponse $response): void
     echo $response->body;
 }
 // @codeCoverageIgnoreEnd
-
-function status_lights_main(): void
-{
-    $system = new
