@@ -2,7 +2,12 @@ name: PHP generator
 
 on:
   pull_request:
+    branches:
+      - main
     paths:
+      - "composer.json"
+      - "composer.lock"
+      - "phpunit.xml"
       - ".cpanel.yml"
       - ".github/workflows/generator.yml"
       - "generator/**"
@@ -47,3 +52,23 @@ jobs:
 
       - name: Validate cPanel pull script
         run: bash -n scripts/cpanel-pull-deploy.sh
+
+  coverage:
+    name: 100% PHP coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: curl, json
+          coverage: xdebug
+
+      - name: Install test dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Enforce 100% coverage
+        run: composer coverage
