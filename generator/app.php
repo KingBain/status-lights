@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+// @codeCoverageIgnoreStart
+// Justification: This module import occurs during PHPUnit test discovery, before coverage collection begins.
 require_once __DIR__ . '/core.php';
+// @codeCoverageIgnoreEnd
 
 final class StatusLightsPayloadTooLargeException extends RuntimeException
 {
@@ -483,8 +486,8 @@ function status_lights_app_main(): void
 }
 // @codeCoverageIgnoreEnd
 
+// @codeCoverageIgnoreStart
 if (!defined('STATUS_LIGHTS_APP_TESTING')) {
-    // @codeCoverageIgnoreStart
     status_lights_app_main();
-    // @codeCoverageIgnoreEnd
 }
+// @codeCoverageIgnoreEnd
