@@ -7,14 +7,7 @@
         <exclude name="PSR1.Classes.ClassDeclaration.MissingNamespace"/>
         <exclude name="PSR1.Classes.ClassDeclaration.MultipleClasses"/>
         <exclude name="PSR1.Files.SideEffects.FoundWithSymbols"/>
-    </rule>
-
-    <!-- Request/response literals and compact fixtures make a fixed line width counterproductive. -->
-    <rule ref="Generic.Files.LineLength">
-        <properties>
-            <property name="lineLimit" value="0"/>
-            <property name="absoluteLineLimit" value="0"/>
-        </properties>
+        <exclude name="Generic.Files.LineLength.TooLong"/>
     </rule>
 
     <file>generator</file>
