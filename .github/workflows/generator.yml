@@ -53,6 +53,10 @@ jobs:
       - name: Run PHPUnit with Coverage Summary
         run: phpunit --coverage-text --show-uncovered-for-coverage --coverage-clover clover.xml --colors=never
 
+      - name: List uncovered source lines
+        run: >
+          php -r '$xml = simplexml_load_file("clover.xml"); foreach ($xml->project->file as $file) { foreach ($file->line as $line) { if ((string) $line["type"] === "stmt" && (int) $line["count"] === 0) { echo $file["name"] . ":" . $line["num"] . PHP_EOL; } } }'
+
       - name: Upload Coverage to Coveralls
         if: matrix.php == '8.4'
         uses: coverallsapp/github-action@v2
