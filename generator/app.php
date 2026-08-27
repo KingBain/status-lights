@@ -466,6 +466,7 @@ function status_lights_app_handle_workflow_job(array $payload): void
     );
 }
 
+// @codeCoverageIgnoreStart -- process response adapter; it terminates the PHP request.
 function status_lights_app_handle_webhook(): never
 {
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -549,6 +550,7 @@ function status_lights_app_handle_webhook(): never
 }
 
 /** @return array{state: StatusLightState, cache_status: string, fetched_at: int} */
+// @codeCoverageIgnoreEnd
 function status_lights_app_resolve(LightRequest $request): array
 {
     $repo = status_lights_app_read(
@@ -584,6 +586,7 @@ function status_lights_app_resolve(LightRequest $request): array
     ];
 }
 
+// @codeCoverageIgnoreStart -- front controller; exercised by endpoint smoke tests.
 function status_lights_app_main(): never
 {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
@@ -623,6 +626,7 @@ function status_lights_app_main(): never
     }
 }
 
+// @codeCoverageIgnoreEnd
 if (!defined('STATUS_LIGHTS_APP_TESTING')) {
     status_lights_app_main();
 }
