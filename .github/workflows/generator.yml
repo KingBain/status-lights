@@ -51,7 +51,7 @@ jobs:
         run: find generator scripts -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Run PHPUnit with Coverage Summary
-        run: phpunit --coverage-text --coverage-clover clover.xml --colors=never
+        run: phpunit --coverage-text --show-uncovered-for-coverage --coverage-clover clover.xml --colors=never
 
       - name: Upload Coverage to Coveralls
         if: matrix.php == '8.4'
