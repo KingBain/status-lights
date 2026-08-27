@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<ruleset name="StatusLights">
+    <description>Coding standard for Status Lights</description>
+
+    <!-- Apply the modern PER Coding Standard or PSR-12 -->
+    <rule ref="PSR12"/>
+
+    <!-- Directories to check -->
+    <file>generator</file>
+    <file>scripts</file>
+
+    <!-- Ignore generated or cache folders -->
+    <exclude-pattern>*/app-data/*</exclude-pattern>
+    <exclude-pattern>*/cache/*</exclude-pattern>
+</ruleset>
