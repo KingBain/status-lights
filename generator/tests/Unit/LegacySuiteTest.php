@@ -10,6 +10,7 @@ final class LegacySuiteTest extends TestCase
     {
         require dirname(__DIR__) . '/run.php';
 
-        $this->addToAssertionCount(1);
+        $request = status_lights_parse_request('/github/owner/repository/workflow.yml.svg');
+        self::assertSame('owner', $request->owner);
     }
 }
