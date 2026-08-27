@@ -7,6 +7,7 @@ on:
     paths:
       - ".cpanel.yml"
       - ".github/workflows/**"
+      - "composer.json"
       - "generator/**"
       - "scripts/**"
       - "phpunit.xml"
@@ -16,6 +17,7 @@ on:
     paths:
       - ".cpanel.yml"
       - ".github/workflows/**"
+      - "composer.json"
       - "generator/**"
       - "scripts/**"
       - "phpunit.xml"
@@ -39,19 +41,22 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up PHP with PHPUnit
+      - name: Set up PHP with Composer
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           extensions: curl, json
-          tools: phpunit
+          tools: composer
           coverage: pcov
+
+      - name: Install test dependencies
+        run: composer update --no-interaction --prefer-dist --no-progress
 
       - name: Syntax Lint (php -l)
         run: find generator scripts -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Run PHPUnit with Coverage Summary
-        run: phpunit --coverage-text --coverage-clover clover.xml --colors=never
+      - name: Run Pest with Coverage Summary
+        run: vendor/bin/pest --configuration=phpunit.xml --coverage-text --coverage-clover clover.xml --colors=never
 
       - name: Enforce 100% coverage
         run: php scripts/check-coverage.php clover.xml
