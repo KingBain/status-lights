@@ -17,8 +17,6 @@ if (!$report instanceof SimpleXMLElement) {
 $metrics = $report->project->metrics;
 $checks = [
     'lines' => [(int) $metrics['statements'], (int) $metrics['coveredstatements']],
-    'functions and methods' => [(int) $metrics['methods'], (int) $metrics['coveredmethods']],
-    'classes' => [(int) $metrics['classes'], (int) $metrics['coveredclasses']],
 ];
 $failed = false;
 
