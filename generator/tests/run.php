@@ -191,6 +191,7 @@ test('finds an individual GitHub Actions job by display name', static function (
         StatusLightState::Unknown,
         status_lights_find_job_state($payload, 'Missing job'),
     );
+    expectSame(StatusLightState::Unknown, status_lights_find_job_state([], 'Missing job'));
 });
 
 test('maps GitHub workflow runs to stable states', static function (): void {
@@ -652,6 +653,13 @@ test('covers configuration and validation boundaries', static function (): void 
     );
     expectSame(120, $request->width);
     expectSame('serif', $request->font);
+
+    $svg = status_lights_render_svg($request, [
+        'state' => StatusLightState::Success,
+        'cache_status' => 'test',
+        'fetched_at' => 1,
+    ]);
+    expect(str_contains($svg, 'width="120"'));
 });
 
 test('covers cache corruption and rendering helpers', static function (): void {
@@ -790,6 +798,19 @@ test('covers app storage, signatures, installations, and ignored webhook variant
                 'name' => 'Job',
                 'run_id' => 2,
                 'head_branch' => 'feature',
+            ],
+        ]);
+        status_lights_app_write(StatusLightsAppStoreKind::Runs, '3', [
+            'workflow' => 'flow.yml',
+        ]);
+        status_lights_app_handle_workflow_job([
+            'repository' => $repository,
+            'workflow_job' => [
+                'name' => 'Job',
+                'run_id' => 3,
+                'head_branch' => 'main',
+                'status' => 'completed',
+                'conclusion' => 'success',
             ],
         ]);
         status_lights_app_handle_workflow_job([
