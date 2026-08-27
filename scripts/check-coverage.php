@@ -13,9 +13,9 @@ if (!$coverage instanceof SimpleXMLElement || !isset($coverage->project->metrics
 $failures = [];
 $metrics = $coverage->project->metrics;
 foreach ([
-    'classes' => 'coveredclasses',
     'methods' => 'coveredmethods',
     'statements' => 'coveredstatements',
+    'elements' => 'coveredelements',
 ] as $totalName => $coveredName) {
     $total = (int) $metrics[$totalName];
     $covered = (int) $metrics[$coveredName];
