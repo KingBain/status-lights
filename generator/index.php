@@ -35,6 +35,9 @@ enum StatusLightState: string
 
 final readonly class LightRequest
 {
+    /**
+     * @param array<string, string> $colors
+     */
     public function __construct(
         public string $owner,
         public string $repository,
@@ -66,6 +69,9 @@ final class StatusLightsRouteException extends RuntimeException
 
 final readonly class StatusLightsResponse
 {
+    /**
+     * @param array<string, string> $headers
+     */
     public function __construct(
         public int $statusCode,
         public array $headers,
@@ -94,7 +100,13 @@ interface StatusLightsSystem
     public function tempnam(string $dir, string $prefix): string|false;
     public function filemtime(string $path): int|false;
     public function createAtomicFile(string $path, string $contents): ?bool;
+    /** @return iterable<string, string> */
     public function getJsonFilesInDirectory(string $path): iterable;
+
+    /**
+     * @param list<string> $headers
+     * @return array<string, mixed>
+     */
     public function fetchHttpJson(string $url, array $headers, int $timeout): array;
     public function extensionLoaded(string $name): bool;
 }
@@ -151,6 +163,7 @@ final class StatusLightsRealSystem implements StatusLightsSystem
         return true;
     }
 
+    /** @return iterable<string, string> */
     public function getJsonFilesInDirectory(string $path): iterable
     {
         try {
@@ -167,6 +180,10 @@ final class StatusLightsRealSystem implements StatusLightsSystem
 
     // @codeCoverageIgnoreStart
     // Justification: Requires external network access to the GitHub REST API. Cannot be cleanly mocked at the PHP level without an external dependency like Guzzle MockHandler.
+    /**
+     * @param list<string> $headers
+     * @return array<string, mixed>
+     */
     public function fetchHttpJson(string $url, array $headers, int $timeout): array
     {
         $handle = curl_init($url);
@@ -213,6 +230,16 @@ function status_lights_environment_integer(string $name, int $default, int $mini
     return min(max((int) $value, $minimum), $maximum);
 }
 
+/**
+ * @return array{
+ *     cache_directory: string,
+ *     cache_ttl: int,
+ *     stale_ttl: int,
+ *     http_cache_ttl: int,
+ *     github_timeout: int,
+ *     github_token: string|null
+ * }
+ */
 function status_lights_config(StatusLightsSystem $system): array
 {
     $token = status_lights_environment('STATUS_LIGHTS_GITHUB_TOKEN', $system);
@@ -327,6 +354,7 @@ function status_lights_job_option(string $value): string {
     if ($characters === false || count($characters) > 100) throw new StatusLightsRouteException('Job name may not exceed 100 characters.');
     return $value;
 }
+/** @param array<string, string> $options */
 function status_lights_integer_option(array $options, string $name, int $default, int $minimum, int $maximum): int {
     if (!array_key_exists($name, $options)) return min(max($default, $minimum), $maximum);
     $value = filter_var($options[$name], FILTER_VALIDATE_INT);
@@ -353,6 +381,7 @@ function status_lights_assert_not_dot_segment(string $value, string $name): void
     if ($value === '.' || $value === '..') throw new StatusLightsRouteException(sprintf('Invalid %s.', $name));
 }
 
+/** @param array<string, mixed> $run */
 function status_lights_map_run_state(array $run): StatusLightState {
     $status = strtolower((string) ($run['status'] ?? ''));
     if ($status !== '' && $status !== 'completed') return StatusLightState::Running;
@@ -364,6 +393,16 @@ function status_lights_map_run_state(array $run): StatusLightState {
     };
 }
 
+/**
+ * @param array{
+ *     cache_directory: string,
+ *     cache_ttl: int,
+ *     stale_ttl: int,
+ *     http_cache_ttl: int,
+ *     github_timeout: int,
+ *     github_token: string|null
+ * } $config
+ */
 function status_lights_fetch_state(StatusLightsSystem $system, string $owner, string $repository, string $workflow, array $config, ?string $job = null): StatusLightState {
     $payload = status_lights_fetch_runs($system, $owner, $repository, $workflow, $config);
     $run = $payload['workflow_runs'][0] ?? null;
@@ -384,6 +423,7 @@ function status_lights_fetch_state(StatusLightsSystem $system, string $owner, st
     return status_lights_find_job_state($jobs, $job);
 }
 
+/** @param array<string, mixed> $payload */
 function status_lights_find_job_state(array $payload, string $jobName): StatusLightState {
     $jobs = $payload['jobs'] ?? null;
     if (!is_array($jobs)) return StatusLightState::Unknown;
@@ -393,6 +433,17 @@ function status_lights_find_job_state(array $payload, string $jobName): StatusLi
     return StatusLightState::Unknown;
 }
 
+/**
+ * @param array{
+ *     cache_directory: string,
+ *     cache_ttl: int,
+ *     stale_ttl: int,
+ *     http_cache_ttl: int,
+ *     github_timeout: int,
+ *     github_token: string|null
+ * } $config
+ * @return array<string, mixed>
+ */
 function status_lights_fetch_runs(StatusLightsSystem $system, string $owner, string $repository, string $workflow, array $config, ?string $branch = null): array {
     $query = ['per_page' => '1'];
     if ($branch !== null) $query['branch'] = $branch;
@@ -400,17 +451,50 @@ function status_lights_fetch_runs(StatusLightsSystem $system, string $owner, str
     return status_lights_fetch_github_json($system, $url, $config);
 }
 
+/**
+ * @param array{
+ *     cache_directory: string,
+ *     cache_ttl: int,
+ *     stale_ttl: int,
+ *     http_cache_ttl: int,
+ *     github_timeout: int,
+ *     github_token: string|null
+ * } $config
+ * @return array<string, mixed>
+ */
 function status_lights_fetch_jobs(StatusLightsSystem $system, string $owner, string $repository, int $runId, array $config): array {
     $url = sprintf('https://api.github.com/repos/%s/%s/actions/runs/%d/jobs?%s', rawurlencode($owner), rawurlencode($repository), $runId, http_build_query(['filter' => 'latest', 'per_page' => '100'], encoding_type: PHP_QUERY_RFC3986));
     return status_lights_fetch_github_json($system, $url, $config);
 }
 
+/**
+ * @param array{
+ *     cache_directory: string,
+ *     cache_ttl: int,
+ *     stale_ttl: int,
+ *     http_cache_ttl: int,
+ *     github_timeout: int,
+ *     github_token: string|null
+ * } $config
+ * @return array<string, mixed>
+ */
 function status_lights_fetch_github_json(StatusLightsSystem $system, string $url, array $config): array {
     $headers = ['Accept: application/vnd.github+json', 'User-Agent: statuslights.dev', 'X-GitHub-Api-Version: 2022-11-28'];
     if (is_string($config['github_token'])) $headers[] = 'Authorization: Bearer ' . $config['github_token'];
     return $system->fetchHttpJson($url, $headers, (int) $config['github_timeout']);
 }
 
+/**
+ * @param array{
+ *     cache_directory: string,
+ *     cache_ttl: int,
+ *     stale_ttl: int,
+ *     http_cache_ttl: int,
+ *     github_timeout: int,
+ *     github_token: string|null
+ * } $config
+ * @return array{state: StatusLightState, cache_status: string, fetched_at: int}
+ */
 function status_lights_resolve_state(StatusLightsSystem $system, LightRequest $request, array $config, ?callable $provider = null, ?int $now = null): array {
     $now ??= $system->time();
     $keyParts = [strtolower($request->owner), strtolower($request->repository), $request->workflow];
@@ -438,6 +522,7 @@ function status_lights_resolve_state(StatusLightsSystem $system, LightRequest $r
     }
 }
 
+/** @return array{state: StatusLightState, fetched_at: int}|null */
 function status_lights_read_cache(StatusLightsSystem $system, string $directory, string $key): ?array {
     $path = status_lights_cache_path($directory, $key);
     if (!$system->isFile($path)) return null;
@@ -470,6 +555,7 @@ function status_lights_cache_path(string $directory, string $key): string {
     return rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . hash('sha256', $key) . '.json';
 }
 
+/** @param array{state: StatusLightState, cache_status: string, fetched_at: int} $result */
 function status_lights_render_svg(LightRequest $request, array $result): string {
     $fonts = ['sans' => 'Arial, Helvetica, sans-serif', 'mono' => 'ui-monospace, SFMono-Regular, Consolas, monospace', 'serif' => "Georgia, 'Times New Roman', serif"];
     $state = $result['state'];
@@ -525,6 +611,10 @@ function status_lights_escape(string $value): string {
     return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
 }
 
+/**
+ * @param array{state: StatusLightState, cache_status: string, fetched_at: int}|null $result
+ * @param array<string, mixed> $server
+ */
 function status_lights_create_svg_response(string $body, int $statusCode, int $cacheTtl, ?array $result = null, array $server = []): StatusLightsResponse {
     $etag = '"' . hash('sha256', $body) . '"';
     if (($server['HTTP_IF_NONE_MATCH'] ?? '') === $etag) {
@@ -546,6 +636,10 @@ function status_lights_create_svg_response(string $body, int $statusCode, int $c
     return new StatusLightsResponse($statusCode, $headers, $body);
 }
 
+/**
+ * @param array<string, mixed> $body
+ * @param array<string, string> $headers
+ */
 function status_lights_create_json_response(array $body, int $statusCode = 200, array $headers = []): StatusLightsResponse {
     $encoded = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     $mergedHeaders = array_merge([
@@ -557,6 +651,7 @@ function status_lights_create_json_response(array $body, int $statusCode = 200, 
     return new StatusLightsResponse($statusCode, $mergedHeaders, $encoded);
 }
 
+/** @param array<string, mixed> $server */
 function status_lights_handle_legacy_request(StatusLightsSystem $system, array $server): StatusLightsResponse {
     $path = parse_url($server['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     if ($path === '/') return new StatusLightsResponse(302, ['Location' => 'https://statuslights.dev/'], '');
