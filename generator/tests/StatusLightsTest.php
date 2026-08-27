@@ -271,9 +271,7 @@ test('app store error handling and pruning operations', function (): void {
         status_lights_app_write($mock, StatusLightsAppStoreKind::Repositories, $key, ['value' => 'x']);
         throw new RuntimeException('Expected temporary file creation to fail.');
     } catch (RuntimeException) {
-
-    // Assert
-    expect(true)->toBeTrue();
+        expect(true)->toBeTrue();
     }
 
     $mock->tempnamSucceeds = true;
@@ -543,9 +541,7 @@ test('covers app store and webhook failure branches', function (): void {
         status_lights_app_delete($mock, StatusLightsAppStoreKind::Statuses, $key);
         throw new RuntimeException('Expected deletion to fail.');
     } catch (RuntimeException) {
-
-    // Assert
-    expect(true)->toBeTrue();
+        expect(true)->toBeTrue();
     }
 
     $mock->unlinkSucceeds = true;
@@ -614,9 +610,7 @@ test('covers remaining core branches', function (): void {
         status_lights_job_option("\xFF");
         throw new RuntimeException('Expected invalid UTF-8 job name to fail.');
     } catch (StatusLightsRouteException) {
-
-    // Assert
-    expect(true)->toBeTrue();
+        expect(true)->toBeTrue();
     }
     try {
         status_lights_job_option("Build\x00");
