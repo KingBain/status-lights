@@ -39,7 +39,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up PHP with PHPUnit & PHPStan
+      - name: Set up PHP with PHPUnit
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -51,7 +51,14 @@ jobs:
         run: find generator scripts tests -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Run PHPUnit with Coverage Summary
-        run: phpunit --coverage-text --colors=never
+        run: phpunit --coverage-text --coverage-clover clover.xml --colors=never
+
+      - name: Upload Coverage to Coveralls
+        if: matrix.php == '8.4'
+        uses: coverallsapp/github-action@v2
+        with:
+          file: clover.xml
+          format: clover [1, 6]
 
       - name: Validate cPanel pull script
         run: bash -n scripts/cpanel-pull-deploy.sh
